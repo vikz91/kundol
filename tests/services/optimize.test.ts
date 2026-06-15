@@ -1,6 +1,10 @@
 import { describe, expect, test } from "bun:test";
+import { mkdtemp } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { openKundolDatabase } from "../../src/db";
 import type { Project } from "../../src/db/repositories";
-import { previewStorageOptimization } from "../../src/services/optimize";
+import { applyStorageOptimization, previewStorageOptimization, type OptimizePreview } from "../../src/services/optimize";
 
 describe("storage optimizer", () => {
   test("selects inactive project cleanup and keeps active project cleanup review-only", async () => {
@@ -25,6 +29,41 @@ describe("storage optimizer", () => {
 
     expect(preview.candidates.find((candidate) => candidate.id === "review:tmp")?.safety).toBe("review");
     expect(preview.candidates.find((candidate) => candidate.id === "protected:docker-volumes")?.safety).toBe("protected");
+  });
+
+  test("apply returns an explicit failure summary for commands that fail", async () => {
+    const homeDir = await mkdtemp(path.join(tmpdir(), "kundol-optimize-"));
+    const connection = openKundolDatabase({ homeDir });
+    const preview: OptimizePreview = {
+      candidates: [
+        {
+          id: "command:failing",
+          kind: "command",
+          category: "Package caches",
+          label: "failing command",
+          detail: "Intentional failure",
+          command: "definitely-not-a-real-command",
+          safety: "safe",
+          defaultSelected: true,
+          sizeBytes: null,
+          run: ["definitely-not-a-real-command"],
+        },
+      ],
+      safeSelectedCount: 1,
+      reviewCount: 0,
+      protectedCount: 0,
+      knownReclaimableBytes: 0,
+    };
+
+    try {
+      const result = await applyStorageOptimization(connection.db, preview);
+
+      expect(result.applied).toEqual([]);
+      expect(result.failed[0]?.candidate.label).toBe("failing command");
+      expect(result.failed[0]?.error).toContain("definitely-not-a-real-command");
+    } finally {
+      connection.close();
+    }
   });
 });
 

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { Project } from "../../src/db/repositories/project-repository";
-import { buildOpenTuiDashboardModel, filterOpenTuiProjects } from "../../src/tui/opentui-dashboard";
+import { buildLabradorBusyFrame, buildOpenTuiDashboardModel, filterOpenTuiProjects } from "../../src/tui/opentui-dashboard";
 
 describe("OpenTUI dashboard model", () => {
   test("summarizes registry projects for terminal rendering", () => {
@@ -31,6 +31,16 @@ describe("OpenTUI dashboard model", () => {
       workspaceCount: 0,
       archiveBeforeCleanDays: 21,
       archiveRoot: "/tmp/kundol-archives",
+      recentActions: [
+        {
+          id: "action-1",
+          projectId: null,
+          actionType: "INDEX",
+          status: "completed",
+          details: {},
+          createdAt: "2026-06-16T03:25:00.000Z",
+        },
+      ],
     });
 
     expect(model.initialized).toBe(false);
@@ -39,6 +49,7 @@ describe("OpenTUI dashboard model", () => {
     expect(model.archiveBeforeCleanDays).toBe(21);
     expect(model.archiveRoot).toBe("/tmp/kundol-archives");
     expect(model.topProjects).toEqual([]);
+    expect(model.recentActions.map((action) => action.actionType)).toEqual(["INDEX"]);
   });
 
   test("filters dashboard project list by search and scanned-only state", () => {
@@ -63,6 +74,17 @@ describe("OpenTUI dashboard model", () => {
     const result = filterOpenTuiProjects(projects, { sortMode: "cleanable" });
 
     expect(result.map((item) => item.id)).toEqual(["large", "medium", "tiny"]);
+  });
+
+  test("builds animated labrador progress frames for safe long-running work", () => {
+    const indexFrame = buildLabradorBusyFrame("index", 0);
+    const cleanFrame = buildLabradorBusyFrame("clean", 5);
+
+    expect(indexFrame.join("\n")).toContain("sniffing project trails");
+    expect(indexFrame.join("\n")).toContain("metadata only");
+    expect(cleanFrame.join("\n")).toContain("previewing safe cleanup");
+    expect(cleanFrame.join("\n")).toContain("dry-run only");
+    expect(cleanFrame.join("\n")).not.toEqual(indexFrame.join("\n"));
   });
 });
 

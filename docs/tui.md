@@ -1,8 +1,8 @@
 # Terminal UI
 
 Created: 2026-06-15 15:33:00 IST  
-Last updated: 2026-06-15 16:20:00 IST  
-Related tasks: `KUN-024`, `KUN-032`, `KUN-036`, `KUN-042`
+Last updated: 2026-06-16 03:02:06 IST  
+Related tasks: `KUN-024`, `KUN-032`, `KUN-036`, `KUN-042`, `KUN-075`
 
 ## Summary
 
@@ -88,6 +88,25 @@ The renderer keeps the bar at height 1 and responsively shortens long values for
 Machine tag is read from `KUNDOL_MACHINE_TAG`, then `KUNDOL_NODE_TAG`, then the OS hostname.
 Battery shows `n/a` when unavailable.
 Docker shows `down` or `-` when the engine is down and the running container count when the engine is up.
+
+## Progress Pet
+
+OpenTUI renders an animated ASCII labrador progress pet while long-running project work is active:
+
+- `i` index: metadata-only workspace discovery.
+- `s` scan: read-only cleanup candidate classification.
+- `c` cleanup preview: dry-run cleanup preparation.
+- `u` / `y` optimize: storage preview/apply flow with service-level safety controls.
+
+The hidden dashboard-only `command+q` / `ctrl+q` hotkey shows the same pet animation for six seconds as a quick visual check.
+It is intentionally omitted from footer help.
+It is not a CLI command; server-friendly and non-TTY command surfaces do not expose it.
+
+The pet is a presentation-only render state driven by the existing animation clock and active action label.
+It must not own indexing, scan, cleanup, or optimizer logic.
+The panel is fixed inside the dashboard left rail below status, so it never replaces the whole dashboard or acts as a splash loader.
+Keep the art compact enough to fit the activity panel without large empty margins.
+Mouse/cursor following is not implemented yet because the current dashboard only handles keyboard input; add it later only if OpenTUI mouse events are enabled in the shell.
 
 ## Testing Notes
 

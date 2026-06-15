@@ -17,6 +17,13 @@ import type { Output } from "../shared/output";
 import { canRunOpenTuiDashboard, runOpenTuiDashboard } from "../tui/opentui-dashboard";
 import { recordSessionAudit } from "../services/audit/session-audit-log";
 import { archiveProjectFolder, getProjectArchivePlan } from "../services/archive/project-archive-service";
+import {
+  applyStorageOptimization,
+  previewStorageOptimization,
+  type OptimizeApplyResult,
+  type OptimizeCandidate,
+  type OptimizePreview,
+} from "../services/optimize";
 import { formatWelcomeMessage } from "./welcome";
 
 const DASHBOARD_TOP_PROJECT_LIMIT = 8;
@@ -73,6 +80,11 @@ export interface CleanOptions {
   dryRun: boolean;
   apply: boolean;
   only?: string;
+}
+
+export interface OptimizeOptions extends JsonOptions {
+  dryRun: boolean;
+  apply: boolean;
 }
 
 type MaybePromiseResult = CommandResult | Promise<CommandResult>;
@@ -436,6 +448,36 @@ export async function cleanProject(context: CommandContext, project: string, opt
   return ok;
 }
 
+export async function optimizeStorage(context: CommandContext, options: OptimizeOptions): Promise<CommandResult> {
+  const apply = options.apply && !options.dryRun;
+  recordSessionAudit(context, { action: apply ? "OPTIMIZE_APPLY" : "OPTIMIZE_DRY_RUN" });
+  const projects = readProjects(context);
+  const preview = await previewStorageOptimization(projects);
+
+  if (!apply) {
+    if (options.json) {
+      writeJson(context, preview);
+      return ok;
+    }
+    writeOptimizePreview(context, preview);
+    return ok;
+  }
+
+  const connection = openKundolDatabase(dbOptions(context));
+  try {
+    const result = await applyStorageOptimization(connection.db, preview);
+    const nextPreview = await previewStorageOptimization(readProjects(context));
+    if (options.json) {
+      writeJson(context, { result, nextPreview });
+      return result.failed.length > 0 ? { exitCode: exitCodes.software } : ok;
+    }
+    writeOptimizeApplySummary(context, result, nextPreview);
+    return result.failed.length > 0 ? { exitCode: exitCodes.software } : ok;
+  } finally {
+    connection.close();
+  }
+}
+
 export async function showRuntimes(context: CommandContext, options: JsonOptions): Promise<CommandResult> {
   recordSessionAudit(context, { action: options.json ? "RUNTIMES_JSON" : "RUNTIMES" });
   const runtimes = await Promise.all([
@@ -609,6 +651,73 @@ function formatProjectTable(projects: Project[]): string {
       return rowIndex === 0 ? `${line}\n${widths.map((width) => "-".repeat(width)).join("  ")}` : line;
     })
     .join("\n");
+}
+
+function writeOptimizePreview(context: CommandContext, preview: OptimizePreview): void {
+  const selected = preview.candidates.filter((candidate) => candidate.safety === "safe" && candidate.defaultSelected);
+  const review = preview.candidates.filter((candidate) => candidate.safety !== "safe");
+  context.output.writeLine("Optimize storage dry run");
+  context.output.writeLine(`Selected safe actions: ${preview.safeSelectedCount}`);
+  context.output.writeLine(`Known reclaimable: ${formatBytes(preview.knownReclaimableBytes)}`);
+  context.output.writeLine(`Needs review: ${preview.reviewCount}`);
+  context.output.writeLine(`Protected: ${preview.protectedCount}`);
+  context.output.writeLine("");
+  context.output.writeLine("Will clean:");
+  writeOptimizeCandidates(context, selected, 30);
+  if (review.length > 0) {
+    context.output.writeLine("");
+    context.output.writeLine("Not included in one-click apply:");
+    writeOptimizeCandidates(context, review, 30);
+  }
+  context.output.writeLine("");
+  context.output.writeLine("Apply selected safe cleanup: kundol optimize --apply --no-dry-run");
+}
+
+function writeOptimizeApplySummary(
+  context: CommandContext,
+  result: OptimizeApplyResult,
+  nextPreview: OptimizePreview,
+): void {
+  const pending = nextPreview.candidates.filter((candidate) => candidate.safety !== "safe");
+  context.output.writeLine("Optimize storage summary");
+  context.output.writeLine(`Applied: ${result.applied.length}`);
+  context.output.writeLine(`Failed: ${result.failed.length}`);
+  context.output.writeLine(`Skipped: ${result.skipped.length}`);
+  context.output.writeLine(`Known reclaimable applied: ${formatBytes(sum(result.applied.map((candidate) => candidate.sizeBytes ?? 0)))}`);
+  context.output.writeLine("");
+  context.output.writeLine("Cleaned this run:");
+  writeOptimizeCandidates(context, result.applied, 50);
+  if (result.failed.length > 0) {
+    context.output.writeLine("");
+    context.output.writeLine("Failed:");
+    for (const failure of result.failed) {
+      context.output.writeLine(`  ${failure.candidate.label}: ${failure.error}`);
+    }
+  }
+  if (result.skipped.length > 0) {
+    context.output.writeLine("");
+    context.output.writeLine("Skipped:");
+    writeOptimizeCandidates(context, result.skipped, 50);
+  }
+  if (pending.length > 0) {
+    context.output.writeLine("");
+    context.output.writeLine("Still pending review/protected:");
+    writeOptimizeCandidates(context, pending, 50);
+  }
+}
+
+function writeOptimizeCandidates(context: CommandContext, candidates: OptimizeCandidate[], limit: number): void {
+  if (candidates.length === 0) {
+    context.output.writeLine("  none");
+    return;
+  }
+  for (const candidate of candidates.slice(0, limit)) {
+    const size = candidate.sizeBytes === null ? "unknown" : formatBytes(candidate.sizeBytes);
+    context.output.writeLine(`  [${candidate.safety}] ${candidate.label}  ${size}  ${candidate.command}`);
+  }
+  if (candidates.length > limit) {
+    context.output.writeLine(`  ... ${candidates.length - limit} more`);
+  }
 }
 
 function fit(value: string, width: number): string {

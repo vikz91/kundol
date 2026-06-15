@@ -1,7 +1,7 @@
 # kundol Agent Guide
 
 Created: 2026-06-13 07:21:12 IST  
-Last updated: 2026-06-14 01:08:32 IST  
+Last updated: 2026-06-16 03:06:06 IST  
 Project type: Bun + TypeScript terminal UI application  
 
 ## Purpose
@@ -18,16 +18,66 @@ kundol is a Bun.js CLI/TUI project discovery and lifecycle tool. It should feel 
 - [`docs/README.md`](docs/README.md) - knowledge-base index for all durable docs
 - [`docs/architecture.md`](docs/architecture.md) - scalable and maintainable Bun + TypeScript TUI architecture
 - [`docs/brand.md`](docs/brand.md) - logo asset, color palette, and brand usage notes
-- [`docs/commands.md`](docs/commands.md) - narrowed MVP command surface and later command groups
+- [`docs/commands.md`](docs/commands.md) - current command surface and later command groups
+- [`docs/commands/default-tui.md`](docs/commands/default-tui.md) - default `kundol` TUI behavior
+- [`docs/commands/init.md`](docs/commands/init.md) - `kundol init` command spec
+- [`docs/commands/index.md`](docs/commands/index.md) - `kundol index` command spec
+- [`docs/demo/seed-demo-workspace.md`](docs/demo/seed-demo-workspace.md) - demo workspace generator for manual CLI/TUI testing
 - [`docs/dependencies.md`](docs/dependencies.md) - Bun/npm dependencies, optional packages, and system tools
 - [`docs/docker.md`](docs/docker.md) - Docker monitoring, analysis, purge workflows, and safety rules
+- [`docs/launch.md`](docs/launch.md) - open-source launch supply chain and community plan
 - [`docs/product-goal.md`](docs/product-goal.md) - main goal, product shape, worker model, runtime scope, and future roadmap
 - [`docs/project-runtimes.md`](docs/project-runtimes.md) - supported project runtimes, markers, cleanup candidates, and runtime workflows
 - [`docs/storage-config.md`](docs/storage-config.md) - user-scoped database, workspace config, and ignore pattern decisions
+- [`docs/storage-optimizer.md`](docs/storage-optimizer.md) - one-click optimize storage safety tiers and cleanup candidate list
+- [`docs/tui.md`](docs/tui.md) - OpenTUI dashboard layout, keyboard model, and CLI parity notes
 - [`docs/user-flow.md`](docs/user-flow.md) - install, init, first index, dashboard, review, project scan, cleanup, and daemon flow
+- [`docs/viral-launch.md`](docs/viral-launch.md) - low-cost viral OSS launch pattern research
+- [`docs/workflows/implementation-wave-001.md`](docs/workflows/implementation-wave-001.md) - first multi-agent implementation wave notes
 
 Agents should treat this section as the starting index.
 When a new durable doc is added under `docs/`, add it here and to `docs/README.md`.
+
+## Codex Operating Loop
+
+This repo is optimized for Codex-driven coding with short-lived specialist agents.
+The main agent owns integration quality and should keep the critical path local while delegating bounded, independent work to subagents.
+
+Default loop for every coding task:
+
+1. Read `AGENTS.md`, then inspect the touched area with `rg`, `sed`, and tests before editing.
+2. Decide whether subagents help. Use them for parallel exploration, focused implementation slices with disjoint files, or verification.
+3. State the intended edit before modifying files.
+4. Keep CLI, TUI, docs, and tests in parity when a feature changes user behavior.
+5. Run `bun run check` unless the change is documentation-only. For doc-only changes, run targeted checks such as link/path inspection when useful.
+6. Update `learnings.md` for any mistake, gotcha, product decision, or reusable implementation rule.
+7. Leave the worktree understandable: no hidden generated files, no unrelated refactors, no reverted user work.
+
+Codex-specific rules:
+
+- Use `apply_patch` for hand edits.
+- Use `rg` before broad file reads.
+- Use `multi_tool_use.parallel` for independent reads.
+- Do not run destructive cleanup commands against the user's real home or projects during tests.
+- Prefer temp homes, temp workspaces, injected clocks, and injected DB paths in tests.
+- When a command works in the dashboard, make sure the equivalent CLI/server-friendly path exists, and vice versa.
+- If a feature has `--json`, keep JSON result shape and exit code behavior consistent with text output.
+- If an async TUI action can partially fail, preserve and display its result instead of returning to an ambiguous idle screen.
+- If a spawned subagent edits code, assign a disjoint write scope and tell it not to revert other work.
+
+## Current Implemented Surfaces
+
+As of 2026-06-16, the implemented app is broader than the original MVP plan.
+Agents must account for these surfaces when changing behavior:
+
+- `kundol` opens the OpenTUI dashboard in an interactive TTY and falls back to a text dashboard in non-TTY contexts.
+- CLI commands: `init`, `index`, `dashboard`, `list`, `show`, `scan`, `clean`, `optimize`/`optimise`, `runtimes`, and `config`.
+- Dashboard actions include search, scanned-only filter, sort cycling, project detail, index, scan, clean dry-run, optimize dry-run/apply, runtimes, config editing, status bar, animations, toasts, and action summaries.
+- `clean` and `optimize` are preview-first and must print the exact explicit apply command.
+- `clean --apply --no-dry-run` can create a `.tar.gz` archive before cleanup when the project is older than `archive.beforeCleanDays`.
+- Session audit logs live under `$HOME/.kundol/sessions`; durable project events also use the SQLite `actions` table.
+
+Do not revive cancelled MVP scope such as broad compact/archive commands, latest-version network lookup, daemon behavior, or Docker volume purge unless the user asks or `plan.md` gets a new task.
 
 ## Required Coordination Loop
 
@@ -38,6 +88,8 @@ Before starting work:
 3. Pick a task whose dependencies are complete or not blocking.
 4. Update that task status to `in progress`, set `Owner`, and set `Started at`.
 5. Read `learnings.md`, `docs/README.md`, and relevant docs under `docs/`.
+
+Do not start a task already marked `in progress` unless the user explicitly asks you to continue it.
 
 While working:
 
@@ -64,94 +116,164 @@ Allowed task statuses are exactly:
 - `don`
 - `cancelled`
 
+Use `don`, not `done`; this spelling is intentional.
+
 Use datetime format: `YYYY-MM-DD HH:mm:ss IST`.
 
-## Subagents
+## Subagent Roster
 
-### Project Manager Agent
+Use this named roster when splitting work. Names are stable handles for coordination notes, plan ownership, and subagent prompts.
 
-Role: coordinate the subagents and keep project knowledge coherent.
+### Aarav Rao - Staff Engineer, Core Product
 
-Responsibilities:
-
-- Own `plan.md` hygiene.
-- Assign or suggest task ownership.
-- Resolve dependency order.
-- Detect duplicate or conflicting work.
-- Keep `learnings.md` current.
-- Create and organize knowledge-base docs under `docs/`.
-- Convert recurring discoveries into coding practices.
-- Review whether task statuses and timestamps are accurate.
-
-Default task types:
-
-- Planning, task breakdown, release checklists, documentation structure, risk tracking, coordination notes.
-
-### Fullstack Developer Agent 1: Core CLI And Data
-
-Role: build the command framework, persistence, migrations, and core business logic.
+Role: owns CLI architecture, command routing, service boundaries, and cross-feature integration.
 
 Responsibilities:
 
-- Bun CLI entrypoint and command routing.
-- SQLite schema, migrations, and repositories.
-- Project discovery and registry queries.
-- Configuration loading and first-run behavior.
-- Tests around data correctness and command behavior.
+- Keep command handlers thin and move business logic into `src/services` or `src/core`.
+- Maintain Commander command parity, option semantics, help text, JSON output, and exit codes.
+- Review changes that touch `src/cli`, command tests, package scripts, or public command behavior.
+- Ensure new features have a non-interactive CLI path for servers and automation.
 
-Default task types:
+Default write scope:
 
-- `KUN-002` through `KUN-020`, database-backed features, integration tests.
+- `src/cli/**`
+- `src/services/**`
+- CLI integration tests
+- README command examples
 
-### Fullstack Developer Agent 2: Analysis And Safety
+### Meera Iyer - Staff Engineer, Data And Safety
 
-Role: build cleanup analysis, recommendation logic, archive workflows, and safety guardrails.
-
-Responsibilities:
-
-- Cleanup safety policy.
-- Generated artifact detection.
-- Recoverable size calculation.
-- Recommendation engine.
-- Compact/archive dry-run and execution flows.
-- Tests for destructive-action prevention.
-
-Default task types:
-
-- `KUN-025` through `KUN-032`, `KUN-037` through `KUN-042`, safety tests.
-
-### Fullstack Developer Agent 3: Runtime And Product Extensions
-
-Role: build runtime audit, tags/notes, future health features, and integration polish.
+Role: owns SQLite persistence, cleanup safety policy, project analysis, and destructive-action guardrails.
 
 Responsibilities:
 
-- Runtime version detection.
-- Latest version lookup and offline behavior.
-- Tag and note workflows.
-- Git insights and future health score groundwork.
-- Packaging and release ergonomics.
+- Maintain migrations, repositories, typed settings, and action audit records.
+- Keep cleanup classification conservative: safe, review/caution, protected, unknown.
+- Ensure every destructive workflow is dry-run first and has explicit apply confirmation.
+- Add tests proving protected paths are never removed automatically.
 
-Default task types:
+Default write scope:
 
-- `KUN-033` through `KUN-036`, `KUN-043`, `KUN-044`, release tasks, future backlog spikes.
+- `src/db/**`
+- `src/core/analysis/**`
+- `src/core/safety/**`
+- `src/services/scan-clean/**`
+- safety and database tests
 
-### Terminal UI Designer Agent
+### Kabir Menon - Staff Systems Engineer
 
-Role: design and implement the terminal user experience.
+Role: expert in Linux, macOS, shell behavior, process execution, Docker, filesystems, and machine telemetry.
 
 Responsibilities:
 
-- TUI layout, navigation, visual hierarchy, and interaction states.
-- Table design for project registry output.
-- Dashboard design.
-- Keyboard shortcuts and command discoverability.
-- Empty states, loading states, error states, and confirmation flows.
-- Accessibility in terminal contexts: color contrast, no color-only meaning, readable symbols.
+- Review all `Bun.spawn`, shell command, Docker, filesystem traversal, archive, temp, and cache cleanup logic.
+- Keep macOS and Linux behavior explicit, especially around paths, permissions, symlinks, battery, CPU, memory, and Docker status.
+- Prefer structured process execution over shell strings.
+- Never approve broad system deletion without a scoped path, age threshold, dry-run, and review tier.
 
-Default task types:
+Default write scope:
 
-- Dashboard UI, list/search output, project scan/clean presentation, confirmation prompts, design QA.
+- `src/platform/**`
+- system status modules
+- archive and optimize services
+- Docker/system docs and tests
+
+### Isha Nair - Explorer, Architecture And Flow
+
+Role: fast codebase explorer for feature flow, dependency paths, and existing patterns.
+
+Responsibilities:
+
+- Answer where a behavior currently lives before implementation starts.
+- Identify the smallest files to touch for a requested change.
+- Find existing tests and fixtures that should be extended.
+- Report conflicts with architecture docs or previous learnings.
+
+Default output:
+
+- Concise findings with file paths and line references.
+- No file edits unless explicitly promoted to worker.
+
+### Rohan Das - Explorer, Edge Cases And Regressions
+
+Role: explorer focused on hidden behavior, missing parity, and failure cases.
+
+Responsibilities:
+
+- Check CLI/TUI parity gaps.
+- Look for async flows that can fail silently.
+- Inspect JSON/text output consistency and exit code behavior.
+- Identify stale docs, missing hints, and confusing user flows.
+
+Default output:
+
+- Findings ordered by risk.
+- Suggested tests and exact commands to reproduce.
+
+### Neha Sharma - Tester And Verification Engineer
+
+Role: owns test strategy, regression coverage, and smoke verification.
+
+Responsibilities:
+
+- Add or update Bun tests for every behavior change.
+- Use temp homes, temp workspaces, injected clocks, and injected DB paths.
+- Run `bun run check` before handoff when code changes.
+- Add smoke commands for CLI/TUI parity without touching real user data.
+
+Default write scope:
+
+- `tests/**`
+- test fixtures and seed scripts
+- targeted docs for verification workflows
+
+### Devika Sen - Manager And Learning Steward
+
+Role: keeps task coordination, mistakes, and durable knowledge coherent.
+
+Responsibilities:
+
+- Own `plan.md` hygiene: status, owner, timestamps, dependencies, notes.
+- Own `learnings.md`: record mistakes, gotchas, and rules that prevent repeat failures.
+- Keep `docs/README.md` and the AGENTS document index current.
+- Convert repeated review comments into durable coding practices.
+
+Default write scope:
+
+- `plan.md`
+- `learnings.md`
+- `AGENTS.md`
+- `docs/README.md`
+- planning and release docs
+
+### Ananya Kapoor - Frontend/TUI Engineer
+
+Role: owns OpenTUI, terminal UX, and future React/web surfaces.
+
+Responsibilities:
+
+- Keep dashboard layout responsive, compact, and readable in narrow and wide terminals.
+- Maintain keyboard hints, toasts, loading states, confirmation states, and post-action summaries.
+- Keep visual design professional without relying on color alone.
+- Apply React-style state discipline where useful, and keep rendering separate from domain logic.
+
+Default write scope:
+
+- `src/tui/**`
+- TUI formatting tests
+- `docs/tui.md`
+- future React/web UI files
+
+## Subagent Collaboration Rules
+
+- Spawn explorers for questions; spawn workers for bounded implementation.
+- Give every worker a disjoint file/module ownership area.
+- Tell every subagent that other agents may be editing in parallel and that it must not revert unrelated changes.
+- Prefer multiple explorers only when their questions are distinct.
+- Do not wait for subagents when useful local work can continue.
+- Integrate subagent results through the main agent, with one final verification pass.
+- If subagent advice conflicts, follow repo tests, safety rules, and existing architecture before taste.
 
 ## Recommended Architecture
 
@@ -198,9 +320,10 @@ Avoid:
 
 Recommended approach:
 
-- Use React-style terminal UI if the chosen stack supports it cleanly, for example Ink.
-- Keep TUI components pure where practical.
-- Keep terminal rendering separate from domain logic.
+- Use OpenTUI for the rich interactive dashboard.
+- Keep TUI rendering separate from domain logic.
+- TUI code may emit typed intents, show confirmations, render progress, and display summaries.
+- Indexing, scanning, cleaning, optimizing, archive creation, audit logging, and deletion belong in services/core.
 - Use a central theme file for colors, symbols, spacing, and status labels.
 - Provide non-interactive command output for scripts and CI-like usage.
 - Design every destructive flow with a dry-run-first path.
@@ -220,9 +343,9 @@ Suggested views:
 - Dashboard summary.
 - Project list with filters.
 - Project detail.
-- Analyze recommendations.
+- Scan recommendations.
+- Optimize storage.
 - Runtime audit.
-- Compact/archive confirmation.
 - Settings/workspace roots.
 
 ## Safety Rules
@@ -265,7 +388,10 @@ Safe generated-file candidates:
 - `coverage.out`
 
 Every destructive workflow must support `--dry-run`.
-`compact` must default to dry-run.
+`clean` and `optimize` must default to dry-run and require `--apply --no-dry-run` for changes.
+Storage optimize default apply must stay narrow: inactive indexed project generated files plus trusted tool-owned commands.
+Broad `/tmp`, `~/Library/Caches`, Docker volumes, global caches, reports, media, databases, and app/system folders remain review/protected.
+Any cleanup apply path must reclassify or re-check live filesystem paths before deletion and reject path escapes, project roots, missing items, caution items, protected items, and stale unsafe scan rows.
 
 ## Testing Expectations
 
@@ -278,11 +404,13 @@ Minimum expectations:
 - Snapshot-like tests only for stable terminal output.
 - Tests proving destructive actions do nothing in dry-run mode.
 - Tests proving protected paths are never removed automatically.
+- Tests proving apply deletes only re-verified `safe` and `canAutoClean` candidates.
 
 Recommended test fixture style:
 
 - Build temporary project directories during tests.
-- Avoid depending on the real home directory.
+- Use temporary homes, temporary DB paths, injected clocks, and generated fixtures.
+- Never let tests or smoke runs touch `$HOME/.kundol/kundol.db` or real user projects.
 - Avoid depending on the user's installed runtimes except in explicitly marked runtime audit tests.
 - Inject time for lifecycle status and archive filename tests.
 

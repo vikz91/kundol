@@ -10,9 +10,11 @@ describe("kundol CLI program", () => {
   test("registers the MVP command surface", () => {
     const help = createProgram().helpInformation();
 
-    for (const command of ["init", "index", "dashboard", "list", "show", "scan", "clean", "runtimes", "config"]) {
+    for (const command of ["init", "index", "dashboard", "list", "show", "scan", "clean", "optimize", "runtimes", "config"]) {
       expect(help).toContain(command);
     }
+    expect(help).not.toContain(" q ");
+    expect(createProgram().commands.some((command) => command.name() === "q")).toBe(false);
   });
 
   test("list command reads an isolated empty registry", async () => {
@@ -174,6 +176,47 @@ describe("kundol CLI program", () => {
     await program.parseAsync(["node", "kundol", "clean", "clean-demo"], { from: "node" });
 
     expect(lines.join("\n")).toContain("Apply safe cleanup: kundol clean clean-demo --apply --no-dry-run");
+    process.exitCode = 0;
+  });
+
+  test("optimize dry-run prints selected cleanup and the explicit apply command", async () => {
+    const homeDir = await mkdtemp(join(tmpdir(), "kundol-cli-optimize-"));
+    const projectPath = join(homeDir, "paused-demo");
+    await mkdir(projectPath, { recursive: true });
+    const connection = openKundolDatabase({ homeDir });
+    try {
+      new ProjectRepository(connection.db, { now: () => new Date("2026-06-15T10:00:00.000Z") }).upsert({
+        path: projectPath,
+        name: "paused-demo",
+        primaryRuntime: "node",
+        runtimes: ["node"],
+        status: "PAUSED",
+        cleanableBytes: 1024,
+      });
+    } finally {
+      connection.close();
+    }
+
+    const lines: string[] = [];
+    const program = createProgram({
+      homeDir,
+      output: {
+        writeLine(message = "") {
+          lines.push(message);
+        },
+        writeError(message = "") {
+          lines.push(message);
+        },
+      },
+    });
+
+    program.exitOverride();
+    await program.parseAsync(["node", "kundol", "optimize"], { from: "node" });
+
+    const output = lines.join("\n");
+    expect(output).toContain("Optimize storage dry run");
+    expect(output).toContain("paused-demo");
+    expect(output).toContain("Apply selected safe cleanup: kundol optimize --apply --no-dry-run");
     process.exitCode = 0;
   });
 });

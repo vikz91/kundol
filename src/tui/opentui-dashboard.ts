@@ -5,13 +5,13 @@ import { getKundolHomePath } from "../config/paths";
 import { saveKundolConfig } from "../config/save-config";
 import { archiveBeforeCleanDaysKey, readTypedSettings } from "../config/settings";
 import { openKundolDatabase } from "../db/client";
-import { ActionRepository } from "../db/repositories/action-repository";
+import { ActionRepository, type ActionLogEntry } from "../db/repositories/action-repository";
 import { ProjectRepository, type Project } from "../db/repositories/project-repository";
 import { ScanRepository } from "../db/repositories/scan-repository";
 import { recordSessionAudit } from "../services/audit/session-audit-log";
 import { runWorkspaceIndex } from "../services/indexing/index-service";
-import { applyStorageOptimization, previewStorageOptimization, type OptimizePreview } from "../services/optimize/storage-optimizer";
-import { cleanProjectService } from "../services/scan-clean/clean-project-service";
+import { applyStorageOptimization, previewStorageOptimization, type OptimizeApplyResult, type OptimizePreview } from "../services/optimize/storage-optimizer";
+import { cleanProjectService, type CleanProjectServiceResult } from "../services/scan-clean/clean-project-service";
 import { scanProjectService } from "../services/scan-clean/scan-project-service";
 
 export interface OpenTuiDashboardContext {
@@ -30,6 +30,7 @@ export interface OpenTuiDashboardModel {
   cleanableBytes: number;
   archiveBeforeCleanDays: number;
   archiveRoot: string;
+  recentActions: ActionLogEntry[];
   topProjects: Array<{
     name: string;
     path: string;
@@ -74,9 +75,13 @@ type StatusKind = "info" | "success" | "warning" | "error";
 type LifecycleState = "starting" | "ready" | "closing";
 type TuiAction = "index" | "scan" | "clean" | "optimize" | "runtimes";
 export type OpenTuiProjectSortMode = "name" | "size" | "cleanable" | "lastScanned";
+type LabradorAction = Extract<TuiAction, "index" | "scan" | "clean" | "optimize">;
 
 const OPENTUI_DASHBOARD_TOP_PROJECT_LIMIT = 5;
 const OPENTUI_PROJECT_LIST_LIMIT = 8;
+const OPENTUI_MAX_RENDER_WIDTH = 220;
+
+type OpenTuiNode = ReturnType<typeof Text> | ReturnType<typeof Box>;
 
 interface Toast {
   id: string;
@@ -90,7 +95,10 @@ interface OpenTuiDashboardState {
   view: ViewName;
   selectedProjectIndex: number;
   runtimes: RuntimeStatus[];
+  cleanDryRunResult: CleanProjectServiceResult | null;
+  cleanApplyArmedProjectId: string | null;
   optimizePreview: OptimizePreview | null;
+  optimizeApplyResult: OptimizeApplyResult | null;
   optimizeApplyArmed: boolean;
   statusMessage: string;
   statusKind: StatusKind;
@@ -108,6 +116,7 @@ interface OpenTuiDashboardState {
   systemStatus: SystemStatus;
   cpuSample: CpuSample;
   systemStatusBusy: boolean;
+  labradorDemoUntilFrame?: number;
 }
 
 export interface OpenTuiProjectListFilters {
@@ -120,6 +129,7 @@ interface DashboardKeyInput {
   name: string;
   sequence: string;
   ctrl: boolean;
+  meta?: boolean;
 }
 
 const colors = {
@@ -145,7 +155,14 @@ export function canRunOpenTuiDashboard(): boolean {
 
 export function buildOpenTuiDashboardModel(
   projects: Project[],
-  options: { initialized?: boolean; workspaceCount?: number; workspaces?: string[]; archiveBeforeCleanDays?: number; archiveRoot?: string } = {},
+  options: {
+    initialized?: boolean;
+    workspaceCount?: number;
+    workspaces?: string[];
+    archiveBeforeCleanDays?: number;
+    archiveRoot?: string;
+    recentActions?: ActionLogEntry[];
+  } = {},
 ): OpenTuiDashboardModel {
   const statusCounts: Record<string, number> = {};
   for (const project of projects) {
@@ -163,6 +180,7 @@ export function buildOpenTuiDashboardModel(
     cleanableBytes: sum(projects.map((project) => project.cleanableBytes)),
     archiveBeforeCleanDays: options.archiveBeforeCleanDays ?? 15,
     archiveRoot: options.archiveRoot ?? getArchiveRoot({}),
+    recentActions: options.recentActions ?? [],
     topProjects: [...projects]
       .sort((a, b) => b.sizeBytes - a.sizeBytes)
       .slice(0, OPENTUI_DASHBOARD_TOP_PROJECT_LIMIT)
@@ -183,6 +201,7 @@ export function loadOpenTuiDashboardModel(context: OpenTuiDashboardContext): Ope
   const connection = openKundolDatabase({ ...context, readonly: false });
   try {
     const projects = new ProjectRepository(connection.db, { now: () => new Date() }).list();
+    const actions = new ActionRepository(connection.db, { now: () => new Date() }).list(10);
     const enabledWorkspaces = config.workspaces.filter((workspace) => workspace.enabled).map((workspace) => workspace.path);
     const settings = readTypedSettings(config.settings);
     return buildOpenTuiDashboardModel(projects, {
@@ -191,6 +210,7 @@ export function loadOpenTuiDashboardModel(context: OpenTuiDashboardContext): Ope
       workspaces: enabledWorkspaces,
       archiveBeforeCleanDays: settings.archiveBeforeCleanDays,
       archiveRoot: getArchiveRoot(context),
+      recentActions: actions,
     });
   } finally {
     connection.close();
@@ -223,7 +243,10 @@ export async function runOpenTuiDashboard(
     view: "dashboard",
     selectedProjectIndex: 0,
     runtimes: [],
+    cleanDryRunResult: null,
+    cleanApplyArmedProjectId: null,
     optimizePreview: null,
+    optimizeApplyResult: null,
     optimizeApplyArmed: false,
     statusMessage: model.initialized ? "Ready. Press ? for keys." : "Configure a workspace to begin.",
     statusKind: "info",
@@ -246,8 +269,10 @@ export async function runOpenTuiDashboard(
   let animationTimer: ReturnType<typeof setInterval> | undefined;
   let closeTimer: ReturnType<typeof setTimeout> | undefined;
   let resolveDone: () => void = () => {};
-  const done = new Promise<void>((resolve) => {
+  let rejectDone: (error: Error) => void = () => {};
+  const done = new Promise<void>((resolve, reject) => {
     resolveDone = resolve;
+    rejectDone = reject;
   });
 
   try {
@@ -261,12 +286,18 @@ export async function runOpenTuiDashboard(
 
     const render = () => {
       if (!renderer) return;
-      if (renderer.root.getRenderable("kundol-opentui-dashboard")) {
-        renderer.root.remove("kundol-opentui-dashboard");
+      try {
+        if (renderer.root.getRenderable("kundol-opentui-dashboard")) {
+          renderer.root.remove("kundol-opentui-dashboard");
+        }
+        clampSelection(state);
+        renderer.root.add(renderShell(state));
+        renderer.requestRender();
+      } catch (error) {
+        const message = `OpenTUI render failed; terminal may be too wide or the renderer could not allocate its buffer. ${formatRenderError(error)}`;
+        if (!renderer.isDestroyed) renderer.destroy();
+        rejectDone(new Error(message));
       }
-      clampSelection(state);
-      renderer.root.add(renderShell(state));
-      renderer.requestRender();
     };
 
     const requestClose = () => {
@@ -307,6 +338,12 @@ export async function runOpenTuiDashboard(
       if (state.lifecycle === "starting" && state.animationFrame > 7) {
         state.lifecycle = "ready";
       }
+      if (state.labradorDemoUntilFrame !== undefined && state.animationFrame >= state.labradorDemoUntilFrame) {
+        finishAction(state);
+        delete state.labradorDemoUntilFrame;
+        state.statusKind = "info";
+        state.statusMessage = "Dashboard.";
+      }
       if (state.animationFrame % 25 === 0) {
         refreshSystemStatus();
       }
@@ -314,6 +351,12 @@ export async function runOpenTuiDashboard(
     }, 120);
 
     renderer.keyInput.on("keypress", (key) => {
+      if (isLabradorDemoHotkey(key) && state.view === "dashboard" && !state.busy) {
+        key.preventDefault();
+        startDashboardLabradorDemo(context, state);
+        render();
+        return;
+      }
       if (key.name === "q" || key.name === "escape" || (key.ctrl && key.name === "c")) {
         key.preventDefault();
         requestClose();
@@ -448,6 +491,12 @@ function handleKey(
     void runOptimizeApplyFromTui(context, state, refreshModel, render);
     return true;
   }
+  if (keyName === "y") {
+    const project = selectedProject(state);
+    recordSessionAudit(context, { action: "TUI_CLEAN_APPLY", projectName: project?.name ?? null });
+    void runCleanApplyFromTui(context, state, refreshModel, render);
+    return true;
+  }
   if (state.view === "config" && (keyName === "+" || keyName === "=")) {
     state.draftArchiveBeforeCleanDays += 1;
     state.configDirty = true;
@@ -504,23 +553,38 @@ function handleKey(
   }
   if (keyName === "up" || keyName === "k") {
     state.selectedProjectIndex = Math.max(0, state.selectedProjectIndex - 1);
+    clearCleanApplyArmIfSelectionChanged(state);
     render();
     return true;
   }
   if (keyName === "down" || keyName === "j") {
     const visibleCount = visibleProjects(state).length;
     state.selectedProjectIndex = Math.min(Math.max(0, visibleCount - 1), state.selectedProjectIndex + 1);
+    clearCleanApplyArmIfSelectionChanged(state);
     render();
     return true;
   }
   if (keyName === "?") {
     state.statusKind = "info";
-    state.statusMessage = "Keys: d dash, l list, u optimize, y apply optimize, / search, t scanned, o sort, enter, i index, s scan, c dry-run, r run, g cfg, q quit.";
+    state.statusMessage = "Keys: d dash, l list, u optimize, y apply armed cleanup, / search, t scanned, o sort, enter, i index, s scan, c dry-run, r run, g cfg, q quit.";
     render();
     return true;
   }
 
   return false;
+}
+
+function isLabradorDemoHotkey(key: DashboardKeyInput): boolean {
+  return key.name === "q" && (key.ctrl || key.meta === true);
+}
+
+function startDashboardLabradorDemo(context: OpenTuiDashboardContext, state: OpenTuiDashboardState): void {
+  recordSessionAudit(context, { action: "TUI_LABRADOR_DEMO" });
+  state.view = "dashboard";
+  state.statusKind = "info";
+  state.statusMessage = "Labrador progress demo.";
+  startAction(state, "index", "Labrador progress demo");
+  state.labradorDemoUntilFrame = state.animationFrame + 50;
 }
 
 async function runIndexFromTui(
@@ -615,8 +679,69 @@ async function runCleanDryRunFromTui(
       { target: project.id, apply: false, archiveBeforeCleanDays: state.model.archiveBeforeCleanDays },
       createScanRepositories(connection.db),
     );
+    state.cleanDryRunResult = result;
+    state.cleanApplyArmedProjectId = result.items.length > 0 ? project.id : null;
+    state.view = "project";
     state.statusKind = result.warnings.length > 0 ? "warning" : "success";
-    state.statusMessage = `Dry-run ${result.project.name}: ${result.items.length} safe item(s), ${formatBytes(result.recoverableBytes)} reclaimable. Apply: kundol clean ${result.project.name} --apply --no-dry-run`;
+    state.statusMessage = result.items.length > 0
+      ? `Dry-run ${result.project.name}: ${result.items.length} safe item(s), ${formatBytes(result.recoverableBytes)} reclaimable. Press y to apply.`
+      : `Dry-run ${result.project.name}: no safe cleanup items found.`;
+    pushToast(state, state.statusKind, state.statusMessage);
+  } catch (error) {
+    state.cleanDryRunResult = null;
+    state.cleanApplyArmedProjectId = null;
+    setError(state, error);
+  } finally {
+    connection.close();
+    finishAction(state);
+    render();
+  }
+}
+
+async function runCleanApplyFromTui(
+  context: OpenTuiDashboardContext,
+  state: OpenTuiDashboardState,
+  refreshModel: () => void,
+  render: () => void,
+): Promise<void> {
+  const project = selectedProject(state);
+  if (!project) {
+    state.statusKind = "warning";
+    state.statusMessage = "Select a project before applying cleanup.";
+    render();
+    return;
+  }
+  if (state.busy) return;
+
+  if (state.cleanApplyArmedProjectId !== project.id || !state.cleanDryRunResult) {
+    state.statusKind = "warning";
+    state.statusMessage = "Run cleanup dry-run first with c, review the result, then press y to apply.";
+    render();
+    return;
+  }
+
+  startAction(state, "clean", `Applying safe cleanup for ${project.name}`);
+  state.statusKind = "warning";
+  render();
+
+  const connection = openKundolDatabase(context);
+  try {
+    const result = await cleanProjectService(
+      {
+        target: project.id,
+        apply: true,
+        scanId: state.cleanDryRunResult.scan.id,
+        archiveBeforeCleanDays: state.model.archiveBeforeCleanDays,
+        archiveRoot: state.model.archiveRoot,
+      },
+      createScanRepositories(connection.db),
+    );
+    state.cleanDryRunResult = null;
+    state.cleanApplyArmedProjectId = null;
+    refreshModel();
+    state.view = "project";
+    state.statusKind = result.warnings.length > 0 ? "warning" : "success";
+    state.statusMessage = `Cleaned ${result.project.name}: ${result.deletedItems.length}/${result.items.length} safe item(s), ${formatBytes(result.deletedBytes)} removed.`;
     pushToast(state, state.statusKind, state.statusMessage);
   } catch (error) {
     setError(state, error);
@@ -635,6 +760,7 @@ async function runOptimizePreviewFromTui(
   if (state.busy) return;
   state.view = "optimize";
   state.optimizeApplyArmed = false;
+  state.optimizeApplyResult = null;
   startAction(state, "optimize", "Preparing storage optimizer dry-run");
   state.statusKind = "info";
   render();
@@ -676,6 +802,7 @@ async function runOptimizeApplyFromTui(
   const connection = openKundolDatabase(context);
   try {
     const result = await applyStorageOptimization(connection.db, state.optimizePreview);
+    state.optimizeApplyResult = result;
     refreshModel();
     state.optimizePreview = await previewStorageOptimization(state.model.projects);
     state.optimizeApplyArmed = state.optimizePreview.safeSelectedCount > 0;
@@ -760,6 +887,14 @@ function renderShell(state: OpenTuiDashboardState) {
       id: "kundol-opentui-dashboard",
       width: "100%",
       height: "100%",
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.background,
+    },
+    Box(
+      {
+      width: safeRenderWidth(),
+      height: safeRenderHeight(),
       flexDirection: "column",
       padding: 1,
       gap: 0,
@@ -772,6 +907,7 @@ function renderShell(state: OpenTuiDashboardState) {
     renderStatusLine(state),
     renderFooterLine(state),
     renderMachineStatusLine(state),
+    ),
   );
 }
 
@@ -813,6 +949,59 @@ function renderMain(state: OpenTuiDashboardState) {
   return renderDashboardView(state);
 }
 
+function shouldShowLabradorPet(state: OpenTuiDashboardState): state is OpenTuiDashboardState & { activeAction: LabradorAction } {
+  return state.busy && (
+    state.activeAction === "index" ||
+    state.activeAction === "scan" ||
+    state.activeAction === "clean" ||
+    state.activeAction === "optimize"
+  );
+}
+
+export function buildLabradorBusyFrame(action: LabradorAction, frame: number): string[] {
+  const phase = frame % 6;
+  const eye = phase < 3 ? "@" : "o";
+  const nose = phase % 2 === 0 ? "o" : "O";
+  const tail = phase % 2 === 0 ? "~~~" : "  ~~~";
+  const pawLeft = phase % 3 === 0 ? "/ " : " /";
+  const pawRight = phase % 3 === 1 ? "\\ " : " \\";
+  const scent = phase <= 1 ? " . . ." : phase >= 4 ? "  . ." : "   .";
+
+  return [
+    `${workingPetTitle(action)} ${dots(frame)}`,
+    workingPetSubtitle(action),
+    `tail ${tail}`,
+    `    \\          / \\__`,
+    `     \\        (  ${eye} \\___`,
+    `      \\_______/        ${nose}${scent}`,
+    `             /   (_____/`,
+    `            /_____/  U`,
+    `              ${pawLeft}   ${pawRight}`,
+    `safe mode: ${actionSafetyText(action)}`,
+  ];
+}
+
+function workingPetTitle(action: LabradorAction): string {
+  if (action === "index") return "Labrador is sniffing project trails";
+  if (action === "scan") return "Labrador is inspecting cleanup clues";
+  if (action === "clean") return "Labrador is previewing safe cleanup";
+  return "Labrador is optimizing storage";
+}
+
+function workingPetSubtitle(action: LabradorAction): string {
+  if (action === "index") return "nose down: markers, runtimes, git hints";
+  if (action === "scan") return "ears up: safe, review, protected files";
+  if (action === "clean") return "eyes alert: dry-run first, no surprises";
+  return "head turning: safe actions only";
+}
+
+function actionSafetyText(action: LabradorAction): string {
+  if (action === "clean") return "dry-run only";
+  if (action === "optimize") return "preview before apply";
+  if (action === "scan") return "read-only scan";
+  return "metadata only";
+}
+
 function renderDashboardView(state: OpenTuiDashboardState) {
   const { model } = state;
   return Box(
@@ -826,7 +1015,11 @@ function renderDashboardView(state: OpenTuiDashboardState) {
     ),
     Box(
       { flexDirection: "row", gap: 2, flexGrow: 1 },
-      panel("Status", statusLines(model.statusCounts), { width: "36%" }),
+      Box(
+        { flexDirection: "column", gap: 1, width: "26%" },
+        panel("Status", statusLines(model.statusCounts), { flexGrow: 1 }),
+        renderActivityPetPanel(state),
+      ),
       panel(
         `Top space consumers (${model.topProjects.length} of ${model.projectCount})`,
         [
@@ -835,8 +1028,53 @@ function renderDashboardView(state: OpenTuiDashboardState) {
         ],
         { flexGrow: 1 },
       ),
+      panel("Audit logs", auditLogRows(model.recentActions, 10), { width: "30%" }),
     ),
   );
+}
+
+function renderActivityPetPanel(state: OpenTuiDashboardState) {
+  const active = shouldShowLabradorPet(state);
+  const frame = active
+    ? buildLabradorBusyFrame(state.activeAction, state.animationFrame)
+    : buildIdleLabradorFrame();
+  return Box(
+    {
+      border: true,
+      borderStyle: "rounded",
+      borderColor: active ? colors.yellow : colors.border,
+      paddingX: 2,
+      paddingY: 1,
+      height: 14,
+      flexDirection: "column",
+      gap: 0,
+      backgroundColor: colors.panel,
+    },
+    Text({ content: active ? "Activity pet" : "Activity", fg: active ? colors.yellow : colors.accent, attributes: 1, truncate: true }),
+    ...frame.map((line, index) =>
+      Text({
+        content: line,
+        fg: active
+          ? index <= 1 ? colors.accent : index === frame.length - 1 ? colors.muted : colors.yellow
+          : index === 0 ? colors.muted : colors.text,
+        truncate: true,
+      }),
+    ),
+  );
+}
+
+function buildIdleLabradorFrame(): string[] {
+  return [
+    "No active work.",
+    "tail  ~~",
+    "    \\          / \\__",
+    "     \\        (  - \\___",
+    "      \\_______/        z",
+    "             /   (_____/",
+    "            /_____/  U",
+    "              /    \\",
+    "safe mode: waiting",
+  ];
 }
 
 function renderOptimizeView(state: OpenTuiDashboardState) {
@@ -856,6 +1094,39 @@ function renderOptimizeView(state: OpenTuiDashboardState) {
   const safe = preview.candidates.filter((candidate) => candidate.safety === "safe");
   const review = preview.candidates.filter((candidate) => candidate.safety === "review");
   const protectedItems = preview.candidates.filter((candidate) => candidate.safety === "protected");
+  const applyResult = state.optimizeApplyResult;
+  if (applyResult) {
+    return Box(
+      { flexDirection: "column", gap: 1, flexGrow: 1 },
+      Box(
+        { flexDirection: "row", gap: 2, height: 4 },
+        metricBox("Applied", String(applyResult.applied.length), colors.green),
+        metricBox("Failed", String(applyResult.failed.length), applyResult.failed.length > 0 ? colors.yellow : colors.green),
+        metricBox("Skipped", String(applyResult.skipped.length), colors.muted),
+        metricBox("Next safe", String(preview.safeSelectedCount), colors.accent),
+      ),
+      Box(
+        { flexDirection: "row", gap: 2, flexGrow: 1 },
+        panel(
+          "Cleaned this run",
+          [
+            ...optimizeCandidateLines(applyResult.applied, 7),
+            Text({ content: `Summary: ${applyResult.applied.length} applied, ${applyResult.failed.length} failed, ${applyResult.skipped.length} skipped. Press u to refresh preview.`, fg: colors.green, truncate: true }),
+          ],
+          { flexGrow: 1 },
+        ),
+        panel(
+          applyResult.failed.length > 0 ? "Failed / pending" : "Still pending review",
+          [
+            ...(applyResult.failed.length > 0 ? optimizeFailureLines(applyResult.failed, 4) : []),
+            ...optimizeCandidateLines([...review, ...protectedItems], applyResult.failed.length > 0 ? 3 : 7),
+            Text({ content: "Review/protected items were not changed.", fg: colors.muted, truncate: true }),
+          ],
+          { flexGrow: 1 },
+        ),
+      ),
+    );
+  }
   return Box(
     { flexDirection: "column", gap: 1, flexGrow: 1 },
     Box(
@@ -889,10 +1160,12 @@ function renderOptimizeView(state: OpenTuiDashboardState) {
 
 function renderProjectsView(state: OpenTuiDashboardState) {
   const projects = visibleProjects(state);
+  const selected = selectedProject(state);
   const lines = state.model.projects.length === 0
     ? [Text({ content: "No projects indexed yet. Press i to index configured workspaces.", fg: colors.muted })]
     : [
         Text({ content: projectFilterText(state, projects.length), fg: state.projectSearchActive ? colors.yellow : colors.muted, truncate: true }),
+        ...(selected ? [Text({ content: `Selected: ${selected.name}  Enter details | s scan | c dry-run`, fg: colors.yellow, attributes: 1, truncate: true })] : []),
         ...(projects.length === 0 ? [Text({ content: "No matching projects. Press x to clear filters or edit the search with /.", fg: colors.yellow, truncate: true })] : []),
         ...projects.slice(0, OPENTUI_PROJECT_LIST_LIMIT).map((project, index) => projectListLine(project, index, index === state.selectedProjectIndex)),
         Text({ content: "Keys: / search, t scanned-only, o sort, x clear. CLI: kundol list --scanned --search <query> --sort <field>", fg: colors.muted, truncate: true }),
@@ -905,6 +1178,7 @@ function renderProjectDetailView(state: OpenTuiDashboardState) {
   if (!project) {
     return panel("Project", [Text({ content: "No project selected.", fg: colors.muted })], { flexGrow: 1 });
   }
+  const cleanApplyArmed = state.cleanApplyArmedProjectId === project.id && state.cleanDryRunResult !== null;
   return panel(
     project.name,
     [
@@ -915,7 +1189,13 @@ function renderProjectDetailView(state: OpenTuiDashboardState) {
       Text({ content: `Git: ${project.gitBranch ?? "-"} ${project.gitDirty ? "dirty" : "clean"}`, fg: project.gitDirty ? colors.yellow : colors.text }),
       Text({ content: `Last indexed: ${project.lastIndexedAt ?? "-"}`, fg: colors.muted }),
       Text({ content: `Last scanned: ${project.lastScannedAt ?? "-"}`, fg: colors.muted }),
-      Text({ content: `Actions: s scan, c dry-run. Apply in shell: kundol clean ${project.name} --apply --no-dry-run`, fg: colors.accent, truncate: true }),
+      Text({
+        content: cleanApplyArmed
+          ? `Actions: y apply last dry-run, c refresh dry-run, s scan. Only safe items are eligible.`
+          : `Actions: s scan, c dry-run. After reviewing dry-run, press y to apply safe cleanup.`,
+        fg: cleanApplyArmed ? colors.yellow : colors.accent,
+        truncate: true,
+      }),
       Text({ content: `CLI: show ${project.name} | scan ${project.name} --largest | clean ${project.name}`, fg: colors.muted, truncate: true }),
     ],
     { flexGrow: 1 },
@@ -964,6 +1244,14 @@ function renderSetupDashboard(state: OpenTuiDashboardState) {
       id: "kundol-opentui-dashboard",
       width: "100%",
       height: "100%",
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.background,
+    },
+    Box(
+      {
+      width: safeRenderWidth(),
+      height: safeRenderHeight(),
       flexDirection: "column",
       padding: 1,
       gap: 0,
@@ -994,10 +1282,27 @@ function renderSetupDashboard(state: OpenTuiDashboardState) {
     renderStatusLine(state),
     renderFooterLine(state),
     renderMachineStatusLine(state),
+    ),
   );
 }
 
-function panel(title: string, children: ReturnType<typeof Text>[], options: { width?: `${number}%`; flexGrow?: number } = {}) {
+function safeRenderWidth(): number {
+  const columns = process.stdout.columns;
+  if (!columns || columns < 1) return 100;
+  return Math.min(columns, OPENTUI_MAX_RENDER_WIDTH);
+}
+
+function safeRenderHeight(): number {
+  const rows = process.stdout.rows;
+  if (!rows || rows < 1) return 36;
+  return Math.min(rows, 42);
+}
+
+function formatRenderError(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function panel(title: string, children: OpenTuiNode[], options: { width?: `${number}%`; flexGrow?: number } = {}) {
   return Box(
     {
       border: true,
@@ -1068,12 +1373,60 @@ function optimizeCandidateLines(candidates: OptimizePreview["candidates"], limit
   );
 }
 
+function optimizeFailureLines(failures: OptimizeApplyResult["failed"], limit: number) {
+  return failures.slice(0, limit).map((failure) =>
+    Text({
+      content: `${fit(failure.candidate.label, 22)} failed: ${failure.error}`,
+      fg: colors.yellow,
+      truncate: true,
+    }),
+  );
+}
+
+function auditLogRows(actions: ActionLogEntry[], limit: number): OpenTuiNode[] {
+  if (actions.length === 0) {
+    return [Text({ content: "No saved actions yet.", fg: colors.muted, truncate: true })];
+  }
+
+  return actions.slice(0, limit).map((action) =>
+    Box(
+      { flexDirection: "row", gap: 1, height: 1 },
+      Text({
+        content: `[${formatAuditTimestamp(action.createdAt)}]`,
+        fg: colors.text,
+        attributes: 1,
+        truncate: true,
+      }),
+      Text({
+        content: `: ${action.actionType}`,
+        fg: action.status === "completed" ? colors.accent : colors.yellow,
+        truncate: true,
+      }),
+    ),
+  );
+}
+
+function formatAuditTimestamp(value: string): string {
+  const parsed = new Date(value);
+  if (!Number.isNaN(parsed.getTime())) {
+    return [
+      String(parsed.getHours()).padStart(2, "0"),
+      String(parsed.getMinutes()).padStart(2, "0"),
+      String(parsed.getSeconds()).padStart(2, "0"),
+    ].join(":");
+  }
+  return value.replace("T", " ").replace(/\.\d{3}Z$/, "").slice(-8);
+}
+
 function projectListLine(project: Project, index: number, selected: boolean) {
   const runtime = project.primaryRuntime ?? project.runtimes[0] ?? "unknown";
-  const marker = selected ? ">" : " ";
+  const marker = selected ? ">> SELECTED" : "           ";
+  const cleanable = project.cleanableBytes > 0 ? `clean ${formatBytes(project.cleanableBytes)}` : "clean -";
+  const row = `${marker} ${fit(project.name, 20)} ${fit(runtime, 8)} ${fit(project.status, 8)} ${fit(formatBytes(project.sizeBytes), 9)} ${fit(cleanable, 12)} ${project.gitDirty ? "dirty" : "clean"}`;
   return Text({
-    content: `${marker} ${fit(project.name, 20)} ${fit(runtime, 8)} ${fit(project.status, 8)} ${fit(formatBytes(project.sizeBytes), 9)} ${project.gitDirty ? "dirty" : "clean"}`,
-    fg: selected ? colors.yellow : colors.text,
+    content: row,
+    fg: selected ? colors.background : project.cleanableBytes > 0 ? colors.green : colors.text,
+    ...(selected ? { bg: colors.yellow } : {}),
     attributes: selected ? 1 : 0,
     truncate: true,
   });
@@ -1081,6 +1434,14 @@ function projectListLine(project: Project, index: number, selected: boolean) {
 
 function selectedProject(state: OpenTuiDashboardState): Project | null {
   return visibleProjects(state)[state.selectedProjectIndex] ?? null;
+}
+
+function clearCleanApplyArmIfSelectionChanged(state: OpenTuiDashboardState): void {
+  const project = selectedProject(state);
+  if (!project || state.cleanApplyArmedProjectId !== project.id) {
+    state.cleanDryRunResult = null;
+    state.cleanApplyArmedProjectId = null;
+  }
 }
 
 function visibleProjects(state: OpenTuiDashboardState): Project[] {
@@ -1189,9 +1550,9 @@ function setError(state: OpenTuiDashboardState, error: unknown): void {
 
 function footerText(state: OpenTuiDashboardState): string {
   if (state.lifecycle === "closing") return "closing...";
-  if (!state.model.initialized) return "q quit  |  run init in another terminal, then reopen kundol";
-  if (state.busy) return "q quit  |  working...";
-  return "q quit | d dash | u optimize | y apply | l list | / search | i index | s scan | c dry-run | r run | g cfg";
+  if (!state.model.initialized) return "q/esc quit  |  run init in another terminal, then reopen kundol";
+  if (state.busy) return "q/esc quit  |  working...";
+  return "q/esc quit | d dash | u optimize | y apply | l list | / search | i index | s scan | c dry-run | r run | g cfg";
 }
 
 function renderToastLine(state: OpenTuiDashboardState) {

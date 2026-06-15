@@ -1,7 +1,7 @@
 # kundol Project Plan
 
 Created: 2026-06-13 07:18:52 IST  
-Last updated: 2026-06-15 23:30:51 IST  
+Last updated: 2026-06-16 03:06:06 IST  
 Project codename: kundol  
 Product concept name from source context: DevShelf  
 
@@ -118,6 +118,8 @@ The pasted context originally named the product `DevShelf`; the MVP now uses `ku
 | KUN-072 | Branding | Add selected app logo to README and brand docs. | don | Codex | 2026-06-15 21:37:29 IST | 2026-06-15 21:37:29 IST | 2026-06-15 21:37:29 IST | KUN-055, KUN-056 | Copied the selected rounded-square `K` logo to `assets/logo.png`, embedded it in README/docs, and added `docs/brand.md` with palette and usage notes. |
 | KUN-073 | Audit | Add per-run timestamped session audit log. | in progress | Codex | 2026-06-15 21:39:50 IST | 2026-06-15 21:39:50 IST |  | KUN-007, KUN-065 | Create an append-only session log for CLI/TUI actions formatted as timestamp, device name, action, and project name when available. |
 | KUN-074 | TUI/Optimize | Add dashboard optimize storage dry-run and apply confirmation. | don | Codex | 2026-06-15 23:30:51 IST | 2026-06-15 23:30:51 IST | 2026-06-15 23:30:51 IST | KUN-065, KUN-F013 | Added `u optimize` dashboard dry-run preview, grouped safe/review/protected details, `y` apply confirmation for selected safe cleanup, optimizer service, tests, and docs/hints. |
+| KUN-075 | TUI | Add animated ASCII labrador progress pet for long-running dashboard work. | don | Codex | 2026-06-16 03:02:06 IST | 2026-06-16 03:02:06 IST | 2026-06-16 03:02:06 IST | KUN-065, KUN-066, KUN-074 | Added a fixed dashboard activity pet for index, scan, cleanup preview, and optimize work states; frame generation is pure/tested and renderer-only. Hidden dashboard-only `command+q` / `ctrl+q` shows a six-second pet demo. Cursor following is deferred until mouse/cursor events are enabled. |
+| KUN-076 | Process | Optimize agent guide for Codex-driven coding and named specialist subagents. | don | Codex + subagents | 2026-06-16 03:06:06 IST | 2026-06-16 03:06:06 IST | 2026-06-16 03:06:06 IST | none | Refreshed `AGENTS.md` with a Codex operating loop, current implemented surfaces, named Indian specialist roster, subagent collaboration rules, stronger CLI/TUI parity, safety, test isolation, and learning-capture guidance. |
 
 ## Future Backlog
 

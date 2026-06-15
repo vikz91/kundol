@@ -7,6 +7,7 @@ import { createDashboardCommand } from "./commands/dashboard";
 import { createIndexCommand } from "./commands/index";
 import { createInitCommand } from "./commands/init";
 import { createListCommand } from "./commands/list";
+import { createOptimizeCommand } from "./commands/optimize";
 import { createRuntimesCommand } from "./commands/runtimes";
 import { createScanCommand } from "./commands/scan";
 import { createShowCommand } from "./commands/show";
@@ -46,6 +47,7 @@ export function createProgram(options: CreateProgramOptions = {}): Command {
   program.addCommand(createShowCommand(context));
   program.addCommand(createScanCommand(context));
   program.addCommand(createCleanCommand(context));
+  program.addCommand(createOptimizeCommand(context));
   program.addCommand(createRuntimesCommand(context));
   program.addCommand(createConfigCommand(context));
 
