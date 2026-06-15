@@ -1,7 +1,8 @@
 import type { CommandResult } from "../actions";
 
-export function applyResult(result: CommandResult): void {
-  if (result.exitCode !== 0) {
-    process.exitCode = result.exitCode;
+export async function applyResult(result: CommandResult | Promise<CommandResult>): Promise<void> {
+  const resolved = await result;
+  if (resolved.exitCode !== 0) {
+    process.exitCode = resolved.exitCode;
   }
 }

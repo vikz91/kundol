@@ -309,6 +309,7 @@ Avoid early spend on:
 
 Build assets:
 
+- Logo from `assets/logo.png` for README, social posts, and GitHub avatar/social preview.
 - One seeded demo workspace with realistic repos, stale folders, generated artifacts, protected files, and runtime markers.
 - One horizontal terminal demo.
 - Seven vertical terminal clips.

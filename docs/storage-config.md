@@ -14,6 +14,18 @@ Default database path:
 $HOME/.kundol/kundol.db
 ```
 
+Per-run audit session logs live under:
+
+```text
+$HOME/.kundol/sessions/session-<timestamp>-<pid>.log
+```
+
+Each line is plain text:
+
+```text
+timestamp : device-name : action : project-name
+```
+
 kundol does not create a separate database per workspace folder.
 Every command reads the configured workspace list from the user-scoped database, so users do not need to run kundol from a specific working directory.
 
@@ -85,6 +97,9 @@ tags
 project_tags
 actions
 ```
+
+The SQLite `actions` table stores durable structured project events.
+The session log stores a lightweight per-process audit trail for command/dashboard actions during that run.
 
 ## Config Shape Concept
 

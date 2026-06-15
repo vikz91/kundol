@@ -10,6 +10,6 @@ export function createIndexCommand(context: CommandContext): Command {
     .option("--all", "index all configured workspaces", true)
     .option("--json", "print machine-readable output", false)
     .action((options: { workspace?: string; all: boolean; json: boolean }) => {
-      applyResult(indexWorkspaces(context, options));
+      return applyResult(indexWorkspaces(context, options));
     });
 }

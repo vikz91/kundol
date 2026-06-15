@@ -38,6 +38,9 @@ Rules:
 | `kundol runtimes` | Show runtime/toolchain status. | no | no | Missing tools are informative. |
 | `kundol config` | View configuration. | no | no | Subcommands can be added later. |
 
+Every CLI/TUI run appends a session audit log under `$HOME/.kundol/sessions/`.
+The line format is `timestamp : device-name : action : project-name`, with `-` when no project is associated.
+
 ## Hardened Command Specs
 
 - [`commands/default-tui.md`](commands/default-tui.md) - `kundol`
@@ -160,6 +163,7 @@ kundol list --status stale
 kundol list --runtime node
 kundol list --tag startup
 kundol list --search voice
+kundol list --scanned --search api
 kundol list --sort size
 kundol list --sort modified
 kundol list --json
@@ -241,16 +245,26 @@ MVP behavior:
 
 - Dry-run by default.
 - Show exact paths that would be removed.
+- Show the exact `kundol clean <project> --apply --no-dry-run` command after a dry-run preview.
 - Show protected/caution items that will not be removed.
 - Require `--apply` to execute.
+- Before applying cleanup, create a local `.tar.gz` project archive when the project folder has not been opened/modified for more than the configured archive threshold.
 
 Flags:
 
 ```bash
 kundol clean <project> --dry-run
-kundol clean <project> --apply
+kundol clean <project> --apply --no-dry-run
 kundol clean <project> --only node_modules
 ```
+
+Config:
+
+```bash
+kundol config --archive-before-clean-days 15
+```
+
+Archives are written under `$HOME/.kundol/archives`.
 
 Safety:
 

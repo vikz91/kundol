@@ -17,6 +17,7 @@ kundol is a Bun.js CLI/TUI project discovery and lifecycle tool. It should feel 
 - [`learnings.md`](learnings.md) - chronological discoveries and implementation notes from agents
 - [`docs/README.md`](docs/README.md) - knowledge-base index for all durable docs
 - [`docs/architecture.md`](docs/architecture.md) - scalable and maintainable Bun + TypeScript TUI architecture
+- [`docs/brand.md`](docs/brand.md) - logo asset, color palette, and brand usage notes
 - [`docs/commands.md`](docs/commands.md) - narrowed MVP command surface and later command groups
 - [`docs/dependencies.md`](docs/dependencies.md) - Bun/npm dependencies, optional packages, and system tools
 - [`docs/docker.md`](docs/docker.md) - Docker monitoring, analysis, purge workflows, and safety rules

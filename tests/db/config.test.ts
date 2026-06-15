@@ -3,7 +3,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { openKundolDatabase, resolveDatabasePath } from "../../src/db/client";
-import { ActionRepository, ProjectRepository, ScanRepository } from "../../src/db/repositories";
+import { ActionRepository, ProjectRepository, ScanRepository, TagRepository } from "../../src/db/repositories";
 import { loadKundolConfig, saveKundolConfig } from "../../src/config";
 import type { Clock } from "../../src/platform/clock";
 
@@ -85,6 +85,7 @@ describe("kundol database foundation", () => {
       const projects = new ProjectRepository(connection.db, fixedClock);
       const scans = new ScanRepository(connection.db, fixedClock);
       const actions = new ActionRepository(connection.db, fixedClock);
+      const tags = new TagRepository(connection.db, fixedClock);
 
       const project = projects.upsert({
         path: "/tmp/kundol-demo/node-api-orders",
@@ -108,8 +109,11 @@ describe("kundol database foundation", () => {
         actionType: "PROJECT_SCAN",
         details: { scanId: scan.id },
       });
+      tags.addToProject(project.id, "Demo");
 
       expect(projects.findByPath("/tmp/kundol-demo/node-api-orders")?.primaryRuntime).toBe("node");
+      expect(tags.listForProject(project.id).map((tag) => tag.name)).toEqual(["demo"]);
+      expect(tags.listProjectIdsByTag("demo")).toEqual([project.id]);
       expect(scans.findLatestForProject(project.id)?.cleanableBytes).toBe(1024);
       expect(actions.findById(action.id)?.details).toEqual({ scanId: scan.id });
     } finally {

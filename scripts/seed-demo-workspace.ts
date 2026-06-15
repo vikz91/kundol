@@ -19,6 +19,7 @@ type ProjectSpec = {
   gitRemote: string;
 };
 
+const ONE_KIB = 1024;
 const ONE_MIB = 1024 * 1024;
 
 const args = process.argv.slice(2);
@@ -69,6 +70,10 @@ const projects: ProjectSpec[] = [
       { path: "README.md", content: "# node-api-orders\n\nDemo API project for kundol.\n" },
     ],
     generated: [
+      { path: "node_modules/express/index.js", bytes: ONE_KIB },
+      { path: "node_modules/express/package.json", bytes: ONE_KIB },
+      { path: "node_modules/zod/index.js", bytes: ONE_KIB },
+      { path: "node_modules/typescript/lib/typescript.js", bytes: ONE_KIB },
       { path: "node_modules/.cache/demo-dependency.bin", bytes: ONE_MIB },
       { path: "dist/server.js", bytes: 160 * 1024 },
       { path: "coverage/lcov.info", bytes: 96 * 1024 },
@@ -107,6 +112,10 @@ const projects: ProjectSpec[] = [
       { path: "vite.config.ts", content: "export default { server: { port: 5173 } };\n" },
     ],
     generated: [
+      { path: "node_modules/vite/dist/node/index.js", bytes: ONE_KIB },
+      { path: "node_modules/react/index.js", bytes: ONE_KIB },
+      { path: "node_modules/react-dom/client.js", bytes: ONE_KIB },
+      { path: "node_modules/@vitejs/plugin-react/dist/index.js", bytes: ONE_KIB },
       { path: "node_modules/.cache/react-demo.bin", bytes: ONE_MIB },
       { path: "dist/assets/index.js", bytes: 220 * 1024 },
       { path: ".vite/deps/chunk.bin", bytes: 128 * 1024 },

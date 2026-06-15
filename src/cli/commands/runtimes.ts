@@ -8,6 +8,6 @@ export function createRuntimesCommand(context: CommandContext): Command {
     .description("Show local runtime and toolchain status.")
     .option("--json", "print machine-readable output", false)
     .action((options: { json: boolean }) => {
-      applyResult(showRuntimes(context, options));
+      return applyResult(showRuntimes(context, options));
     });
 }

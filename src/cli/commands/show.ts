@@ -9,6 +9,6 @@ export function createShowCommand(context: CommandContext): Command {
     .argument("<project>", "project name, stable id, or path")
     .option("--json", "print machine-readable output", false)
     .action((project: string, options: { json: boolean }) => {
-      applyResult(showProject(context, project, options));
+      return applyResult(showProject(context, project, options));
     });
 }

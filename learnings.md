@@ -1,7 +1,7 @@
 # kundol Learnings
 
 Created: 2026-06-13 07:21:12 IST  
-Last updated: 2026-06-15 15:25:17 IST  
+Last updated: 2026-06-15 17:10:40 IST  
 
 This file is the chronological learning log for agents working on kundol.
 Add discoveries, decisions, implementation gotchas, and useful references here as work progresses.
@@ -119,8 +119,8 @@ Add discoveries, decisions, implementation gotchas, and useful references here a
 ### 2026-06-15 15:23:03 IST
 
 - Added the initial Bun package scaffold with strict TypeScript, Commander command routing, and CLI skeleton tests.
-- Command handlers currently delegate to placeholder action functions so DB, discovery, analysis, and TUI services can be wired later without moving business logic into `src/cli`.
-- `bun run typecheck` passed before concurrent discovery-core edits landed; later `bun run check` is blocked by type errors in `src/core/discovery/type-inference.ts`, outside the CLI scaffold scope.
+- Command handlers were initially scaffolded, then wired to DB, discovery, analysis, registry, runtime, and cleanup services during the 2026-06-15 integration pass.
+- `bun run check` now passes after CLI wiring and strictness fixes.
 
 ### 2026-06-15 15:23:42 IST
 
@@ -142,3 +142,91 @@ Add discoveries, decisions, implementation gotchas, and useful references here a
 - Implemented the first SQLite persistence foundation with Bun `bun:sqlite`, an idempotent migration ledger, and typed repositories for config, projects, scans, and actions.
 - Config loading/saving accepts an injected database path for tests and future command wiring, so tests do not touch `$HOME/.kundol/kundol.db`.
 - First-run config behavior is intentionally conservative: a database can exist with migrations applied, but kundol is not considered initialized until at least one workspace is configured.
+
+### 2026-06-15 15:47:51 IST
+
+- Added registry query helpers under `src/core/registry` that operate on `ProjectRepository.list()`-compatible sources, keeping list/show/dashboard behavior independent from CLI command wiring.
+- Registry list filtering now covers status, runtime, search, tag, and sort; tag filtering is conservative while the tag repository is incomplete and returns no rows with a warning unless an injectable tag resolver is provided.
+- Dashboard summary is derived from project registry fields: counts by status, total size bytes, cleanable bytes, and configurable top space consumers.
+
+### 2026-06-15 15:47:53 IST
+
+- Added lifecycle status inference in `src/core/projects/lifecycle.ts` with conservative thresholds: new within 14 days, active within 30 days of last modification, paused within 120 days, stale after that, archived preserved, and missing paths marked deleted.
+- Added `runWorkspaceIndex` in `src/services/indexing/index-service.ts` as the command-facing service dependency for `kundol index`; it loads configured workspaces/exclusions, runs `runIndexWorker`, upserts project registry metadata, marks missing scoped projects as `DELETED`, and records one `INDEX` action with summary details.
+- Index service tests use injected database paths, clocks, and process runners so workspace indexing remains deterministic and does not touch the user's real home database.
+
+### 2026-06-15 15:48:40 IST
+
+- Added scan-clean services under `src/services/scan-clean` so future CLI/TUI wiring can call scan and clean workflows without putting persistence or deletion logic in command handlers.
+- `scanProjectService` resolves an indexed project by id, name, or path, runs the existing cleanup analyzer/recommendation engine, persists `project_scans` and `scan_items`, updates project scan metadata through the scan repository, and logs `PROJECT_SCAN`.
+- `cleanProjectService` uses the latest/current persisted scan, defaults to dry-run, logs `CLEAN_DRY_RUN`, and only deletes persisted safe auto-clean generated artifacts on explicit apply after reclassifying the current filesystem path.
+- Focused scan-clean tests use temporary projects and temporary database paths.
+
+### 2026-06-15 15:51:28 IST
+
+- MVP CLI actions are now wired for `init`, `index`, `dashboard`, `list`, `show`, `scan`, `clean`, `runtimes`, and `config`.
+- `clean <project>` is the MVP destructive workflow and defaults to dry-run; archive/compact and latest-version runtime checks were cancelled for MVP and moved to future scope.
+- Added `TagRepository` for `tags` and `project_tags`, closing the persistence layer gap.
+- Full `bun run check` passed with 45 tests before final bookkeeping; demo smoke flow passed using a temporary HOME and seeded workspace.
+
+### 2026-06-15 16:12:24 IST
+
+- Added `@opentui/core` as the default rich-dashboard renderer for interactive `kundol` launches.
+- The default command now gates OpenTUI behind TTY/CI checks and falls back to the existing Chalk welcome plus plain dashboard output for scripts, pipes, and renderer failures.
+- The OpenTUI dashboard builds a pure registry summary model first, so native renderer behavior can stay out of normal unit tests.
+
+### 2026-06-15 16:45:36 IST
+
+- Added a small OpenTUI animation clock inside `src/tui/opentui-dashboard.ts` for startup, shutdown, and active async command states.
+- TUI-triggered `index`, `scan`, cleanup dry-run, and runtime checks now set an action-specific spinner message while work is in progress and push a compact toast when the async task finishes or fails.
+- The toast/status behavior is presentation-only; server-friendly commands such as `kundol dashboard`, `kundol list --json`, and `kundol scan --json` remain stdout-oriented and non-interactive.
+
+### 2026-06-15 16:58:52 IST
+
+- The demo seeder now writes visible 1KB files inside fake Node dependency packages, not only large hidden cache blobs under `node_modules/.cache`.
+- Re-running the seeder on an existing folder appends/overwrites seeded files but does not clear unrelated existing projects; `/tmp/kundol-demo` may contain older demo projects unless the folder is cleaned outside kundol.
+- Dashboard top-project caps were raised to 8 for both OpenTUI and plain CLI dashboard output so seeded workspaces with 6-7 projects do not look like only two projects were indexed.
+
+### 2026-06-15 17:06:44 IST
+
+- `clean --apply --no-dry-run` now creates a local `.tar.gz` archive before deleting generated artifacts when the project folder access/modified age is greater than `archive.beforeCleanDays`.
+- The archive threshold defaults to 15 days and is stored in the generic settings table; CLI users can update it with `kundol config --archive-before-clean-days <days>`.
+- OpenTUI config view now exposes the archive threshold with `+`/`-` editing and `v` save, while the config command remains usable in server/stdout-only environments.
+
+### 2026-06-15 17:10:40 IST
+
+- OpenTUI now samples local machine status for a bottom one-row bar: compact local time/UTC offset, machine tag, selected project directory, Git branch, memory percent, CPU percent, battery percent where available, and Docker engine/running-container status.
+- `KUNDOL_MACHINE_TAG` and `KUNDOL_NODE_TAG` are supported as future-friendly node labels for multi-instance/cloud status views; hostname remains the fallback.
+- The status bar uses emoji-led segments with gaps on wide terminals and a compact shortened fallback on narrow terminals, preserving the one-row height without overlapping values.
+
+### 2026-06-15 17:21:03 IST
+
+- `kundol list --scanned --search <query>` is the focused path for finding projects that have completed scan metadata.
+- Cleanup dry-run output should always show `kundol clean <project> --apply --no-dry-run` so users understand that preview and execution are separate actions.
+
+### 2026-06-15 17:26:14 IST
+
+- Dashboard project listing now mirrors CLI list discovery with typed `/` search, `t` scanned-only filtering, `o` sort cycling, and `x` clear filters.
+- Dashboard views should keep CLI-equivalent hints visible, especially for server-friendly `--json` output and explicit cleanup apply commands.
+
+### 2026-06-15 21:37:29 IST
+
+- Selected the cleaner rounded-square `K` logo over the later folder-heavy refinement and stored it at `assets/logo.png`.
+- Added `docs/brand.md` so README, launch, and social assets reuse the same logo and color direction.
+
+### 2026-06-15 21:39:50 IST
+
+- Added per-run plain text session audit logs under `$HOME/.kundol/sessions/`.
+- Session log lines use `timestamp : device-name : action : project-name`; project name is `-` when the action is not project-specific.
+- The existing SQLite `actions` table remains the durable structured project-event store, while session logs are lightweight run-level audit trails.
+
+### 2026-06-15 21:51:27 IST
+
+- Planned a future one-click storage optimizer in `docs/storage-optimizer.md`.
+- Default safe cleanup should stay narrow: indexed project generated files, `pnpm store prune`, `yarn cache clean`, `npm cache verify`, and targeted Docker cleanup without volumes.
+- `/tmp`, system junk, Docker named volumes, global language caches, and force-clean operations should be review-only until stronger safety rules exist.
+
+### 2026-06-15 23:30:51 IST
+
+- Added the first OpenTUI Optimize storage flow: `u` runs a dry-run preview, and `y` applies selected safe cleanup only after preview.
+- Optimize apply excludes `/tmp`, `~/Library/Caches`, Docker volumes, and other review/protected candidates; those are visible in the dashboard for awareness only.

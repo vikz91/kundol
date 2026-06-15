@@ -1,7 +1,7 @@
 # Bun Dependency Knowledge Base
 
 Created: 2026-06-13 07:30:45 IST  
-Last updated: 2026-06-13 08:34:13 IST  
+Last updated: 2026-06-15 16:12:24 IST  
 Related tasks: `KUN-002`, `KUN-003`, `KUN-004`, `KUN-005`, `KUN-006`, `KUN-024`, `KUN-036`, `KUN-042`, `KUN-F007`, `KUN-F010`
 
 ## Purpose
@@ -66,14 +66,16 @@ These are optional because kundol must degrade gracefully when missing:
 Install these for the initial app:
 
 ```bash
-bun add commander zod ink react
+bun add @opentui/core chalk commander zod ink react
 ```
 
 | Package | Layer | Reason |
 |---|---|---|
+| `@opentui/core` | `src/tui` | Native OpenTUI renderer for the default rich dashboard in interactive terminals. |
+| `chalk` | `src/cli` | Non-TTY welcome banner and plain CLI color fallback. |
 | `commander` | `src/cli` | CLI command routing, options, help output, and subcommands. |
 | `zod` | `src/config`, `src/core`, adapters | Runtime validation for config, parsed command output, JSON data, and persisted metadata boundaries. |
-| `ink` | `src/tui` | React-style terminal UI renderer for interactive screens. |
+| `ink` | `src/tui` | Existing React-style TUI component shell; keep until deliberately migrated or removed. |
 | `react` | `src/tui` | Required peer/runtime model for Ink components. |
 
 ## Required Dev Dependencies

@@ -1,8 +1,8 @@
 # Command Spec: `kundol`
 
 Created: 2026-06-14 00:38:01 IST  
-Last updated: 2026-06-14 00:56:24 IST  
-Related tasks: `KUN-004`, `KUN-024`, `KUN-059`, `KUN-060`
+Last updated: 2026-06-15 16:12:24 IST  
+Related tasks: `KUN-004`, `KUN-024`, `KUN-059`, `KUN-060`, `KUN-065`
 
 ## Purpose
 
@@ -18,8 +18,8 @@ kundol
 ## MVP Behavior
 
 - If kundol is not initialized, show a short first-run message and route into `kundol init`.
-- If kundol is initialized, open the TUI dashboard.
-- If TUI rendering is unavailable, print a helpful message and suggest non-interactive commands.
+- If kundol is initialized and the terminal is interactive, open the OpenTUI dashboard.
+- If TUI rendering is unavailable, print the Chalk welcome and plain dashboard summary.
 - Never mutate projects, clean files, archive, delete, or purge resources.
 
 ## Flags
@@ -124,15 +124,17 @@ Offer:
 If stdout is not a TTY:
 
 - Do not launch TUI.
-- Print a concise message.
-- Suggest `kundol dashboard` for non-interactive output.
-- Exit with code `2`.
+- Print the Chalk welcome and plain dashboard summary.
+- Keep the process scriptable and exit with code `0` unless the fallback dashboard itself fails.
 
 Example:
 
 ```text
-The default TUI requires an interactive terminal.
-Use `kundol dashboard` for scriptable output.
+kundol v0.1.0 local project radar + safe cleanup cockpit
+
+kundol dashboard
+Projects: 6
+Total size: 7.7 MB
 ```
 
 ## Exit Codes
@@ -141,7 +143,7 @@ Use `kundol dashboard` for scriptable output.
 |---:|---|
 | `0` | TUI exited normally. |
 | `1` | Unexpected error. |
-| `2` | TUI requested in non-interactive environment. |
+| `2` | Usage error from a named command. |
 | `3` | Config exists but is invalid and cannot be repaired automatically. |
 
 ## Safety Rules
@@ -153,7 +155,8 @@ Use `kundol dashboard` for scriptable output.
 
 ## Implementation Notes
 
-- Keep TUI rendering in `src/tui`.
+- Keep OpenTUI rendering in `src/tui/opentui-dashboard.ts`.
+- Keep the non-TTY default fallback in plain CLI output.
 - Keep config/db initialization outside React components.
 - TUI should call services; services should not import TUI code.
 - Dashboard data should come from shared query/service methods used by `kundol dashboard`.
@@ -165,7 +168,7 @@ Required tests:
 - Routes to init when config is missing.
 - Opens dashboard when config and database are valid.
 - Shows repair/error state for invalid config.
-- Does not launch TUI when stdout is non-interactive.
+- Does not launch TUI when stdout is non-interactive and renders the plain dashboard fallback.
 - Does not call cleanup/archive/delete services on startup.
 - Shows never-scanned empty state when registry is empty.
 

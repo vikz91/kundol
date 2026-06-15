@@ -32,6 +32,7 @@ Each project has:
 - Runtime markers such as `package.json`, `pyproject.toml`, `requirements.txt`, and `go.mod`.
 - Fake `.git` metadata.
 - Fake generated/deletable artifacts around 1MB+.
+- Visible fake Node dependency files under `node_modules`, with small 1KB package payloads plus larger cache blobs.
 - Examples of protected/caution files such as `.env`, local databases, reports, or uploads where useful.
 
 Generated artifact examples:

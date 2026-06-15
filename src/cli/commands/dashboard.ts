@@ -8,6 +8,6 @@ export function createDashboardCommand(context: CommandContext): Command {
     .description("Print a non-interactive summary of projects, disk usage, and recommendations.")
     .option("--json", "print machine-readable output", false)
     .action((options: { json: boolean }) => {
-      applyResult(showDashboard(context, options));
+      return applyResult(showDashboard(context, options));
     });
 }

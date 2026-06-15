@@ -25,6 +25,19 @@ export interface ProjectScan {
   details: Record<string, unknown>;
 }
 
+export interface ScanItemRecord {
+  id: string;
+  scanId: string;
+  projectId: string;
+  path: string;
+  kind: string;
+  safety: string;
+  sizeBytes: number;
+  reason: string | null;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+}
+
 interface ProjectScanRow {
   id: string;
   project_id: string;
@@ -35,6 +48,19 @@ interface ProjectScanRow {
   recommendation_count: number;
   status: string;
   details_json: string;
+}
+
+interface ScanItemRow {
+  id: string;
+  scan_id: string;
+  project_id: string;
+  path: string;
+  kind: string;
+  safety: string;
+  size_bytes: number;
+  reason: string | null;
+  metadata_json: string;
+  created_at: string;
 }
 
 export class ScanRepository {
@@ -99,6 +125,53 @@ export class ScanRepository {
       .get(projectId);
     return row ? mapProjectScan(row) : null;
   }
+
+  createItem(input: {
+    scanId: string;
+    projectId: string;
+    path: string;
+    kind: string;
+    safety: string;
+    sizeBytes?: number;
+    reason?: string | null;
+    metadata?: Record<string, unknown>;
+  }): ScanItemRecord {
+    const id = randomUUID();
+    const createdAt = toIsoDateTime(this.clock.now());
+    this.db
+      .query(
+        `INSERT INTO scan_items (
+          id, scan_id, project_id, path, kind, safety, size_bytes, reason, metadata_json, created_at
+        ) VALUES (
+          $id, $scanId, $projectId, $path, $kind, $safety, $sizeBytes, $reason, $metadataJson, $createdAt
+        )`,
+      )
+      .run({
+        $id: id,
+        $scanId: input.scanId,
+        $projectId: input.projectId,
+        $path: input.path,
+        $kind: input.kind,
+        $safety: input.safety,
+        $sizeBytes: input.sizeBytes ?? 0,
+        $reason: input.reason ?? null,
+        $metadataJson: JSON.stringify(input.metadata ?? {}),
+        $createdAt: createdAt,
+      });
+    return this.findItemById(id)!;
+  }
+
+  listItemsForScan(scanId: string): ScanItemRecord[] {
+    return this.db
+      .query<ScanItemRow, [string]>("SELECT * FROM scan_items WHERE scan_id = ? ORDER BY size_bytes DESC, path ASC")
+      .all(scanId)
+      .map(mapScanItem);
+  }
+
+  findItemById(id: string): ScanItemRecord | null {
+    const row = this.db.query<ScanItemRow, [string]>("SELECT * FROM scan_items WHERE id = ?").get(id);
+    return row ? mapScanItem(row) : null;
+  }
 }
 
 function mapProjectScan(row: ProjectScanRow): ProjectScan {
@@ -112,5 +185,20 @@ function mapProjectScan(row: ProjectScanRow): ProjectScan {
     recommendationCount: row.recommendation_count,
     status: row.status,
     details: JSON.parse(row.details_json) as Record<string, unknown>,
+  };
+}
+
+function mapScanItem(row: ScanItemRow): ScanItemRecord {
+  return {
+    id: row.id,
+    scanId: row.scan_id,
+    projectId: row.project_id,
+    path: row.path,
+    kind: row.kind,
+    safety: row.safety,
+    sizeBytes: row.size_bytes,
+    reason: row.reason,
+    metadata: JSON.parse(row.metadata_json) as Record<string, unknown>,
+    createdAt: row.created_at,
   };
 }

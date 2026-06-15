@@ -1,7 +1,11 @@
+<p align="center">
+  <img src="../assets/logo.png" alt="kundol logo" width="96" height="96">
+</p>
+
 # kundol Knowledge Base
 
 Created: 2026-06-13 07:21:12 IST  
-Last updated: 2026-06-15 15:21:12 IST  
+Last updated: 2026-06-15 21:37:29 IST  
 
 This directory stores durable project knowledge for agents.
 Use `learnings.md` for chronological notes, and promote stable decisions or reusable explanations into this directory.
@@ -9,6 +13,7 @@ Use `learnings.md` for chronological notes, and promote stable decisions or reus
 Current pages:
 
 - [`architecture.md`](architecture.md) - scalable Bun + TypeScript TUI architecture, module boundaries, data flow, and maintainability rules
+- [`brand.md`](brand.md) - logo asset, color palette, and brand usage notes
 - [`commands.md`](commands.md) - narrowed MVP command surface and later command groups
   - [`commands/default-tui.md`](commands/default-tui.md) - hardened spec for `kundol`
   - [`commands/init.md`](commands/init.md) - hardened spec for `kundol init`
@@ -21,6 +26,7 @@ Current pages:
 - [`product-goal.md`](product-goal.md) - main goal, product shape, worker model, runtime scope, and future roadmap
 - [`project-runtimes.md`](project-runtimes.md) - supported runtime families, project markers, cleanup candidates, caution files, and workflow notes
 - [`storage-config.md`](storage-config.md) - user-scoped database, workspace config, and ignore pattern decisions
+- [`storage-optimizer.md`](storage-optimizer.md) - plan for one-click optimize storage with safety tiers and cleanup candidates
 - [`user-flow.md`](user-flow.md) - install, init, first index, first dashboard, review, project scan, cleanup, and daemon flow
 - [`viral-launch.md`](viral-launch.md) - research-backed low-cost viral launch strategy from successful OSS launch patterns
 - [`workflows/implementation-wave-001.md`](workflows/implementation-wave-001.md) - coordination note for the first parallel implementation wave

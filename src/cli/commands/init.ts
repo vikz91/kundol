@@ -9,7 +9,7 @@ export function createInitCommand(context: CommandContext): Command {
     .option("-w, --workspace <path>", "workspace root to save; repeat for multiple roots", collect, [])
     .option("--no-index", "skip the first index after setup")
     .action((options: { workspace: string[]; index: boolean }) => {
-      applyResult(initProject(context, options));
+      return applyResult(initProject(context, options));
     });
 }
 

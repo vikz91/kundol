@@ -155,6 +155,15 @@ export class ProjectRepository {
     return row ? mapProject(row) : null;
   }
 
+  findByName(name: string): Project | null {
+    const row = this.db.query<ProjectRow, [string]>("SELECT * FROM projects WHERE name = ? ORDER BY updated_at DESC LIMIT 1").get(name);
+    return row ? mapProject(row) : null;
+  }
+
+  findByIdentifier(identifier: string): Project | null {
+    return this.findById(identifier) ?? this.findByPath(identifier) ?? this.findByName(identifier);
+  }
+
   list(): Project[] {
     return this.db.query<ProjectRow, []>("SELECT * FROM projects ORDER BY name").all().map(mapProject);
   }

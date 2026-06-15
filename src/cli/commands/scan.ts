@@ -10,6 +10,6 @@ export function createScanCommand(context: CommandContext): Command {
     .option("--json", "print machine-readable output", false)
     .option("--largest", "include largest detected project items", false)
     .action((project: string, options: { json: boolean; largest: boolean }) => {
-      applyResult(scanProject(context, project, options));
+      return applyResult(scanProject(context, project, options));
     });
 }
