@@ -1,7 +1,7 @@
 # kundol Knowledge Base
 
 Created: 2026-06-13 07:21:12 IST  
-Last updated: 2026-06-14 01:08:32 IST  
+Last updated: 2026-06-15 15:21:12 IST  
 
 This directory stores durable project knowledge for agents.
 Use `learnings.md` for chronological notes, and promote stable decisions or reusable explanations into this directory.
@@ -23,6 +23,7 @@ Current pages:
 - [`storage-config.md`](storage-config.md) - user-scoped database, workspace config, and ignore pattern decisions
 - [`user-flow.md`](user-flow.md) - install, init, first index, first dashboard, review, project scan, cleanup, and daemon flow
 - [`viral-launch.md`](viral-launch.md) - research-backed low-cost viral launch strategy from successful OSS launch patterns
+- [`workflows/implementation-wave-001.md`](workflows/implementation-wave-001.md) - coordination note for the first parallel implementation wave
 
 Recommended pages:
 

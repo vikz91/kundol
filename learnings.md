@@ -1,7 +1,7 @@
 # kundol Learnings
 
 Created: 2026-06-13 07:21:12 IST  
-Last updated: 2026-06-14 01:08:32 IST  
+Last updated: 2026-06-15 15:25:17 IST  
 
 This file is the chronological learning log for agents working on kundol.
 Add discoveries, decisions, implementation gotchas, and useful references here as work progresses.
@@ -97,6 +97,12 @@ Add discoveries, decisions, implementation gotchas, and useful references here a
 - Added `scripts/seed-demo-workspace.ts` to generate fake Node.js, Python, and Go workspaces for manual kundol CLI testing.
 - Demo projects keep source files small while adding roughly 1MB+ generated/deletable artifacts per project.
 
+### 2026-06-15 15:21:12 IST
+
+- Implementation wave 001 is split across foundation/CLI work, SQLite/config work, and pure discovery core work.
+- Discovery DB wiring, registry, scan, and cleanup execution should stay behind the shared scaffold, command registry, schema, migrations, config access layer, and repository contract to avoid duplicate abstractions.
+- Coordination details live in `docs/workflows/implementation-wave-001.md`.
+
 ### 2026-06-13 07:35:11 IST
 
 - Launch strategy planning was split across subagents for GitHub/open-source launch, branding/community, and YouTube/Instagram content.
@@ -109,3 +115,30 @@ Add discoveries, decisions, implementation gotchas, and useful references here a
 - Durable research synthesis now lives in `docs/viral-launch.md`.
 - Extracted kundol launch wedge: find forgotten local projects and safely reclaim dev disk space without deleting code by default.
 - Lowest-cost strategy: HN/GitHub first, real terminal demos, maintainer presence in comments, fast support, starter issues for runtime/cleanup gaps, and a 12-week content loop.
+
+### 2026-06-15 15:23:03 IST
+
+- Added the initial Bun package scaffold with strict TypeScript, Commander command routing, and CLI skeleton tests.
+- Command handlers currently delegate to placeholder action functions so DB, discovery, analysis, and TUI services can be wired later without moving business logic into `src/cli`.
+- `bun run typecheck` passed before concurrent discovery-core edits landed; later `bun run check` is blocked by type errors in `src/core/discovery/type-inference.ts`, outside the CLI scaffold scope.
+
+### 2026-06-15 15:23:42 IST
+
+- Added cleanup safety core modules under `src/core/safety` with explicit `safe`, `caution`, `protected`, and `unknown` classifications.
+- Added project cleanup analysis under `src/core/analysis`; it scans project-local paths, aggregates total/safe/caution/protected/unknown bytes, and never deletes anything.
+- Added recommendation generation under `src/core/recommendations`; MVP recommendations include `kundol clean <project>` preview, caution review, inactive archive follow-up, and no-op messaging.
+- Databases, environment files, source, migrations, lockfiles/manifests, uploads/media, assets, and `.git` are protected from automatic cleanup in code.
+
+### 2026-06-15 15:25:17 IST
+
+- Added core discovery modules for runtime marker detection, project type inference, traversal skip rules, directory size calculation, Git metadata collection, and the reusable index worker facade.
+- Runtime detection now covers Node.js, Bun, Deno, Python, Go, Rust, Java, .NET, and Git-only projects while preserving mixed-runtime results.
+- Git metadata collection is read-only; dirty status requires an injected process runner so tests and future workers can control shell access.
+- Discovery traversal treats user exclusions as exact paths and generated/internal directories as built-in performance skips.
+- Discovery modules satisfy the scaffold's strict TypeScript settings, including `exactOptionalPropertyTypes` and unchecked indexed access.
+
+### 2026-06-15 15:25:15 IST
+
+- Implemented the first SQLite persistence foundation with Bun `bun:sqlite`, an idempotent migration ledger, and typed repositories for config, projects, scans, and actions.
+- Config loading/saving accepts an injected database path for tests and future command wiring, so tests do not touch `$HOME/.kundol/kundol.db`.
+- First-run config behavior is intentionally conservative: a database can exist with migrations applied, but kundol is not considered initialized until at least one workspace is configured.
