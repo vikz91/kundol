@@ -1,6 +1,4 @@
 import type { Project } from "../../db/repositories/project-repository";
-import type { TuiProjectSummary } from "../../tui/types";
-import { fitCell, formatCount } from "../../tui/format";
 import type { DashboardSummary, ProjectListResult, RegistryWarning, ShowProjectResult } from "./query";
 
 export interface RegistryProjectRow {
@@ -59,21 +57,6 @@ export function toRegistryProjectRow(project: Project): RegistryProjectRow {
     lastIndexed: formatDateLabel(project.lastIndexedAt),
     lastScanned: formatDateLabel(project.lastScannedAt),
     git: project.gitDirty ? "dirty" : "clean",
-  };
-}
-
-export function toTuiProjectSummary(project: Project): TuiProjectSummary {
-  return {
-    id: project.id,
-    name: project.name,
-    path: project.path,
-    runtime: normalizeTuiRuntime(project.primaryRuntime ?? project.runtimes[0]),
-    status: normalizeTuiStatus(project.status),
-    size: formatBytes(project.sizeBytes),
-    cleanable: formatBytes(project.cleanableBytes),
-    lastIndexed: formatDateLabel(project.lastIndexedAt),
-    lastScanned: formatDateLabel(project.lastScannedAt),
-    dirty: project.gitDirty,
   };
 }
 
@@ -173,33 +156,12 @@ function appendWarnings(lines: string[], warnings: RegistryWarning[]): string[] 
   return [...lines, "", ...warnings.map((warning) => `Warning: ${warning.message}`)];
 }
 
-function normalizeTuiRuntime(value: string | null | undefined): TuiProjectSummary["runtime"] {
-  switch (value) {
-    case "node":
-    case "bun":
-    case "deno":
-    case "python":
-    case "go":
-    case "rust":
-    case "java":
-    case "dotnet":
-    case "git":
-      return value;
-    default:
-      return "unknown";
-  }
+function fitCell(value: string, width: number): string {
+  if (value.length <= width) return value.padEnd(width);
+  if (width <= 1) return value.slice(0, width);
+  return `${value.slice(0, width - 1)}~`;
 }
 
-function normalizeTuiStatus(value: string): TuiProjectSummary["status"] {
-  switch (value) {
-    case "NEW":
-    case "ACTIVE":
-    case "PAUSED":
-    case "STALE":
-    case "ARCHIVED":
-    case "DELETED":
-      return value;
-    default:
-      return "UNKNOWN";
-  }
+function formatCount(count: number, singular: string, plural = `${singular}s`): string {
+  return `${count} ${count === 1 ? singular : plural}`;
 }

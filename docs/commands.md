@@ -1,352 +1,91 @@
 # Commands
 
 Created: 2026-06-14 00:33:03 IST  
-Last updated: 2026-06-14 01:08:32 IST  
-Related tasks: `KUN-004`, `KUN-016`, `KUN-017`, `KUN-020`, `KUN-024`, `KUN-032`, `KUN-036`, `KUN-042`, `KUN-050`
+Last updated: 2026-06-16 05:45:00 IST  
+Related tasks: `KUN-077`, `KUN-F013`
 
-## Command Philosophy
+## Direction
 
-kundol should have a small command surface.
+kundol is now a CLI-only cleanup tool.
 
-The CLI should support scriptable workflows, while the TUI should handle interactive exploration.
-Avoid adding a new top-level command when a flag or TUI action is clearer.
+There is no dashboard, TUI, init/index/list/show/scan/clean/runtimes/config command surface in the target product.
 
-Rules:
+## Commands
 
-- `kundol` opens the main TUI.
-- kundol uses one user-scoped SQLite database at `$HOME/.kundol/kundol.db`.
-- Config lives inside the SQLite database.
-- Config stores workspace roots and user-excluded project/workspace paths.
-- Commands should work from any current working directory after init.
-- Every destructive command defaults to dry-run or requires a preview.
-- Search is a filter on `list`, not a separate top-level command for MVP.
-- Docker, daemon, mobile, archive restore, and deep git insights are later command groups.
-- Commands should work without network access unless the command explicitly checks latest versions.
+| Command | Purpose |
+|---|---|
+| `kundol` | Print the ASCII welcome banner and examples. |
+| `kundol optimise storage` | Scan machine-level storage targets, confirm, clean listed items, report, and audit. |
+| `kundol optimise startup` | Scan system and app startup items, choose listed user startup items, disable them, report, and audit. |
+| `kundol optimise projects <workdir>` | Scan projects under a workdir to depth 7, confirm, remove safe generated/dependency artifacts, report, and audit. |
+| `kundol optimise repos <workdir>` | Repo-scoped alias for the same safe generated-artifact cleanup flow under Git-oriented workdirs. |
 
-## MVP Commands
+`optimise` intentionally uses British spelling. Do not add an `optimize` alias unless the product direction changes.
 
-| Command | Purpose | Interactive | Mutates data | Notes |
-|---|---|---:|---:|---|
-| `kundol` | Open main TUI/dashboard. | yes | no | Default command after init. |
-| `kundol init` | First-run setup: create config/db, choose workspaces, then optionally index. | yes | yes | Writes local config and SQLite database. |
-| `kundol index` | Index configured workspace folders. | optional | yes | Updates registry metadata only. |
-| `kundol dashboard` | Print dashboard summary. | no | no | Non-interactive summary for terminal/scripts. |
-| `kundol list` | List projects with filters/sorting. | no | no | Main registry browsing command. |
-| `kundol show <project>` | Show one project detail. | no | no | Project can be name, path, or stable id. |
-| `kundol scan <project>` | Deep scan cleanup opportunities and recommendations. | no | yes | Updates project scan metadata and action log; does not delete files. |
-| `kundol clean <project>` | Preview or execute safe generated-file cleanup. | optional | yes | Must default to dry-run for MVP. |
-| `kundol runtimes` | Show runtime/toolchain status. | no | no | Missing tools are informative. |
-| `kundol config` | View configuration. | no | no | Subcommands can be added later. |
+## Only Option
 
-Every CLI/TUI run appends a session audit log under `$HOME/.kundol/sessions/`.
-The line format is `timestamp : device-name : action : project-name`, with `-` when no project is associated.
+Each optimise subcommand exposes exactly one workflow option:
 
-## Hardened Command Specs
+```bash
+-f, --force
+```
 
-- [`commands/default-tui.md`](commands/default-tui.md) - `kundol`
-- [`commands/init.md`](commands/init.md) - `kundol init`
-- [`commands/index.md`](commands/index.md) - `kundol index`
-- [`commands/scan.md`](commands/scan.md) - `kundol scan <project>`
+`-f` skips the confirmation prompt after scanning. It must not skip scanning, planning, safety checks, live path re-checks, reporting, or audit logging.
 
-## Default TUI
+Do not expose:
 
-Command:
+```bash
+--dry-run
+--apply
+--no-dry-run
+--json
+--max-depth
+```
+
+Max depth is fixed at 7 for the public CLI.
+
+## Run Contract
+
+Every optimise command follows this sequence:
+
+1. Print or prepare the ASCII command context.
+2. Scan the requested scope.
+3. Classify cleanup candidates.
+4. Print the proposed cleanup plan.
+5. Ask for confirmation unless `-f` is present.
+6. Execute only listed cleanup targets.
+7. Re-check live filesystem paths immediately before deletion.
+8. Print removed, skipped, failed, and reclaimed-byte totals.
+9. Write session and durable audit records.
+
+## Examples
 
 ```bash
 kundol
+kundol optimise storage
+kundol optimise storage -f
+kundol optimise startup
+kundol optimise startup -f
+kundol optimise projects ~/Projects
+kundol optimise projects ~/Projects -f
+kundol optimise repos ~/Projects
+kundol optimise repos ~/Projects -f
 ```
 
-Behavior:
-
-- If not initialized, route to `kundol init`.
-- If initialized, open dashboard TUI.
-- Show projects, filters, recommendations, and next actions.
-- Never perform destructive actions without a confirmation flow.
-
-## Init
-
-Command:
-
-```bash
-kundol init
-```
-
-Responsibilities:
-
-- Create local config directory.
-- Create local SQLite database.
-- Ask for workspace folders.
-- Save workspace roots.
-- Offer first index.
-
-Flags:
-
-```bash
-kundol init --workspace ~/Projects
-kundol init --workspace ~/Projects --workspace ~/work
-kundol init --no-index
-```
-
-## Index
-
-Command:
-
-```bash
-kundol index
-```
-
-Responsibilities:
-
-- Run non-AI index workers over configured workspaces.
-- Detect projects.
-- Infer runtimes and project types.
-- Collect size and Git metadata.
-- Update SQLite registry.
-- Log `INDEX`.
-
-Flags:
-
-```bash
-kundol index --workspace ~/Projects
-kundol index --all
-kundol index --json
-```
-
-Notes:
-
-- `--workspace` indexes one path without changing saved config unless paired with a future config command.
-- `--all` indexes all configured workspaces and is the default after init.
-- Indexing should tolerate partial failures.
-
-## Dashboard
-
-Command:
-
-```bash
-kundol dashboard
-```
-
-Responsibilities:
-
-- Print non-interactive summary.
-- Show project counts.
-- Show disk usage.
-- Show potential cleanup.
-- Show top runtimes.
-- Show top space consumers.
-- Show next suggested actions.
-
-Flags:
-
-```bash
-kundol dashboard --json
-```
-
-## List
-
-Command:
-
-```bash
-kundol list
-```
-
-Responsibilities:
-
-- List projects from registry.
-- Filter and sort projects.
-- Replace the need for a separate `search` command in MVP.
-
-Flags:
-
-```bash
-kundol list --status stale
-kundol list --runtime node
-kundol list --tag startup
-kundol list --search voice
-kundol list --scanned --search api
-kundol list --sort size
-kundol list --sort modified
-kundol list --json
-```
-
-Default columns:
-
-- Name
-- Runtime
-- Status
-- Size
-- Cleanable
-- Git dirty
-- Last modified
-- Path
-
-## Show
-
-Command:
-
-```bash
-kundol show <project>
-```
-
-Responsibilities:
-
-- Show one project in detail.
-- Accept project name, id, or path.
-- Display recommendations without mutating files.
-
-Fields:
-
-- Name
-- Path
-- Runtime markers
-- Size
-- Cleanable bytes
-- Git remote/branch/dirty
-- Lifecycle status
-- Notes/tags when available
-- Last indexed
-- Last project scanned
-- Recommendations summary
-
-## Scan Project
-
-Command:
-
-```bash
-kundol scan <project>
-```
-
-Responsibilities:
-
-- Detect safe cleanup candidates.
-- Detect caution/protected items.
-- Estimate reclaimable bytes.
-- Generate recommendations.
-- Log `PROJECT_SCAN`.
-
-Flags:
-
-```bash
-kundol scan <project> --json
-kundol scan <project> --largest
-```
-
-Project scan must not delete files.
-
-## Clean
-
-Command:
-
-```bash
-kundol clean <project>
-```
-
-MVP behavior:
-
-- Dry-run by default.
-- Show exact paths that would be removed.
-- Show the exact `kundol clean <project> --apply --no-dry-run` command after a dry-run preview.
-- Show protected/caution items that will not be removed.
-- Require `--apply` to execute.
-- Before applying cleanup, create a local `.tar.gz` project archive when the project folder has not been opened/modified for more than the configured archive threshold.
-
-Flags:
-
-```bash
-kundol clean <project> --dry-run
-kundol clean <project> --apply --no-dry-run
-kundol clean <project> --only node_modules
-```
-
-Config:
-
-```bash
-kundol config --archive-before-clean-days 15
-```
-
-Archives are written under `$HOME/.kundol/archives`.
-
-Safety:
-
-- Never remove protected paths.
-- Do not clean caution items unless a future command adds explicit scoped confirmation.
-- Do not combine Docker cleanup with project cleanup.
-
-## Runtimes
-
-Command:
-
-```bash
-kundol runtimes
-```
-
-Responsibilities:
-
-- Show installed/missing runtime tooling.
-- Show current versions.
-- Show latest versions when lookup is available.
-- Mark missing/outdated tools clearly.
-
-Flags:
-
-```bash
-kundol runtimes --json
-kundol runtimes --offline
-```
-
-## Config
-
-Command:
-
-```bash
-kundol config
-```
-
-MVP behavior:
-
-- Show config path.
-- Show database path.
-- Show workspace roots.
-- Show archive path if configured.
-
-Future subcommands:
-
-```bash
-kundol config add-workspace ~/work
-kundol config remove-workspace ~/work
-kundol config set archiveDir ~/Archives/kundol
-```
-
-## Later Commands
-
-These are valid product directions but not MVP command surface.
-
-| Command group | Status | Notes |
-|---|---|---|
-| `kundol archive` / `kundol compact` | later | Archive inactive projects after safety preflight. |
-| `kundol daemon` | later | Background metadata monitoring only; no cleanup in daemon. |
-| `kundol docker` | later | Docker scan/analyze/purge with separate safety rules. |
-| `kundol doctor` | later | Workspace health and runtime diagnostics. |
-| `kundol git` | later | Dirty repos, missing remotes, stale branches. |
-| `kundol note` | later | Notes can start in TUI or `show`; CLI subcommand can wait. |
-| `kundol tag` | later | Tags can start as config/metadata support; CLI subcommand can wait. |
-| `kundol duplicates` | later | Duplicate repo detection. |
-| `kundol report` | later | Redacted support/debug report. |
-
-## Commands Not In MVP
-
-Avoid these in MVP:
-
-- `kundol search`
-- `kundol purge`
-- `kundol delete`
-- `kundol restore`
-- `kundol sync`
-- `kundol login`
-
-Rationale:
-
-- Search belongs under `list --search`.
-- Purge/delete language is too destructive for early trust.
-- Restore matters after archive exists.
-- Sync/login imply cloud features, which are not part of the local-first MVP.
+## Safety
+
+Never automatically remove:
+
+- project roots
+- `.git`
+- `.env` or `.env.*`
+- database files
+- uploads
+- media
+- assets
+- migrations
+- source files
+
+Docker volumes remain protected from default storage optimisation.
+
+Startup optimisation currently supports macOS startup discovery. The displayed list is filtered to user LaunchAgents under `~/Library/LaunchAgents`; system LaunchAgents, LaunchDaemons, Apple items, and app Login Items are kept out of the action list. Startup rows show discovered name and description; missing metadata is shown as `! unknown`.

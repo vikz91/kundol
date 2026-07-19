@@ -1,12 +1,12 @@
 # Product Goal
 
 Created: 2026-06-13 08:34:13 IST  
-Last updated: 2026-06-13 08:34:13 IST  
-Related tasks: `KUN-003`, `KUN-004`, `KUN-010`, `KUN-011`, `KUN-012`, `KUN-016`, `KUN-032`, `KUN-033`, `KUN-036`, `KUN-057`
+Last updated: 2026-06-16 05:24:08 IST  
+Related tasks: `KUN-003`, `KUN-004`, `KUN-010`, `KUN-011`, `KUN-012`, `KUN-016`, `KUN-032`, `KUN-033`, `KUN-036`, `KUN-057`, `KUN-077`
 
 ## Main Goal
 
-kundol is a Bun.js CLI/TUI app that scans developer workspaces, identifies user-created projects, and analyzes them by runtime and project shape.
+kundol is a Bun.js CLI-only app that scans developer workspaces, identifies user-created projects, and analyzes them by runtime and project shape.
 
 The app should help a developer answer:
 
@@ -22,7 +22,7 @@ The app should help a developer answer:
 kundol has three primary parts:
 
 - CLI commands for scriptable workflows.
-- TUI screens for interactive exploration, review, and confirmation.
+- Plan-and-confirm terminal prompts for cleanup review.
 - Non-AI workers that scan folders, collect metadata, analyze runtimes, compute sizes, and classify cleanup candidates.
 
 Workers are deterministic system workers, not AI agents.
@@ -37,9 +37,9 @@ workspace folders
   -> runtime/type inference
   -> metadata + disk usage collection
   -> SQLite registry
-  -> CLI/TUI views
+  -> CLI views
   -> project scan + recommendations
-  -> dry-run cleanup/archive workflows
+  -> optimise scan + plan + confirm + report workflows
 ```
 
 ## Current Runtime Scope
@@ -85,8 +85,8 @@ Docker support should:
 ## Design Implications
 
 - The codebase should be Bun-first and TypeScript-first.
-- CLI/TUI presentation must stay separate from scanning/analyzer workers.
+- CLI presentation must stay separate from scanning/analyzer workers.
 - Runtime support should be plugin-like internally: each runtime has markers, analyzers, cleanup rules, and audit commands.
 - Project discovery must identify user-created projects, servers, web apps, libraries, CLIs, experiments, and mixed-runtime repos.
 - Cleanup recommendations must be explainable and conservative.
-- Every destructive action must be dry-run first and explicitly confirmed.
+- Every destructive optimise action must scan first, print a plan, then explicitly confirm unless `-f, --force` is provided.

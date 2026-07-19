@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { mkdtemp } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, utimes } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { openKundolDatabase } from "../../src/db";
@@ -21,14 +21,24 @@ describe("storage optimizer", () => {
     expect(stale?.defaultSelected).toBe(true);
     expect(active?.safety).toBe("review");
     expect(active?.defaultSelected).toBe(false);
-    expect(preview.knownReclaimableBytes).toBe(1024);
+    expect(preview.knownReclaimableBytes).toBeGreaterThanOrEqual(1024);
   });
 
-  test("marks macOS temp and docker volumes outside one-click apply", async () => {
-    const preview = await previewStorageOptimization([]);
+  test("selects old temp entries and keeps docker volumes protected", async () => {
+    const oldTemp = await mkdtemp(path.join(tmpdir(), "000-kundol-old-temp-"));
+    const oldDate = new Date(Date.now() - 10 * 86_400_000);
+    await mkdir(path.join(oldTemp, "cache"), { recursive: true });
+    await utimes(oldTemp, oldDate, oldDate);
+    try {
+      const preview = await previewStorageOptimization([]);
 
-    expect(preview.candidates.find((candidate) => candidate.id === "review:tmp")?.safety).toBe("review");
-    expect(preview.candidates.find((candidate) => candidate.id === "protected:docker-volumes")?.safety).toBe("protected");
+      const tempCandidate = preview.candidates.find((candidate) => candidate.kind === "filesystem" && candidate.path === oldTemp);
+      expect(tempCandidate?.safety).toBe("safe");
+      expect(tempCandidate?.defaultSelected).toBe(true);
+      expect(preview.candidates.find((candidate) => candidate.id === "protected:docker-volumes")?.safety).toBe("protected");
+    } finally {
+      await rm(oldTemp, { recursive: true, force: true });
+    }
   });
 
   test("apply returns an explicit failure summary for commands that fail", async () => {

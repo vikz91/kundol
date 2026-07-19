@@ -1,7 +1,7 @@
 # kundol Learnings
 
 Created: 2026-06-13 07:21:12 IST  
-Last updated: 2026-06-16 03:21:38 IST  
+Last updated: 2026-06-16 15:39:39 IST  
 
 This file is the chronological learning log for agents working on kundol.
 Add discoveries, decisions, implementation gotchas, and useful references here as work progresses.
@@ -250,3 +250,27 @@ Add discoveries, decisions, implementation gotchas, and useful references here a
 - OpenTUI can fail buffer allocation on very wide terminals; cap the dashboard root render width before handing layout to OpenTUI.
 - TUI render failures should destroy the renderer and reject back to the CLI fallback instead of dumping escape sequences and leaving terminal focus/mouse reporting enabled.
 - Wide-terminal smoke testing can be done with `stty cols 318 rows 40; KUNDOL_OPENTUI_DEMO_MS=500 bun run dev`.
+
+### 2026-06-16 05:24:08 IST
+
+- Product direction shifted to CLI-only: no dashboard/TUI as a user-facing surface.
+- New cleanup command vocabulary uses British spelling and grouped commands: `kundol optimise storage`, `kundol optimise projects <workdir>`, and `kundol optimise repos <workdir>`.
+- The target optimise flow has no `--dry-run`, `--apply`, or `--no-dry-run` flags. Each run scans, prints a plan, confirms unless `-f, --force` is provided, executes only safe cleanup, prints a final report, and audits.
+- Existing TUI docs are historical only; future implementation should migrate reusable scan/safety/reporting logic into CLI workflows rather than adding dashboard parity.
+
+### 2026-06-16 05:27:56 IST
+
+- `optimise projects <workdir>` service cleanup should use a narrow generated-artifact allowlist plus the shared safety policy; review-only paths such as virtualenvs, `.tox`, `.nox`, reports, `vendor`, databases, assets, uploads, media, migrations, `.env*`, and `.git` must never become default apply targets.
+- Project cleanup apply must re-check the live filesystem path immediately before deletion, including path containment, type stability, symlink rejection, realpath dedupe, and safe auto-clean classification.
+
+### 2026-06-16 05:34:10 IST
+
+- The public optimise CLI exposes only `-f, --force`; max depth is fixed at 7 for `projects` and `repos`, and JSON/dry-run/apply flags are intentionally absent.
+- Storage optimisation now includes safe package-cache commands, Docker system prune without volumes, and old top-level temp entries that are rechecked before removal; Docker volumes remain protected.
+- Dashboard/TUI code, tests, docs, and dependencies were removed from the active product surface. Future UI work should be a new product decision, not a compatibility obligation.
+
+### 2026-06-16 15:39:39 IST
+
+- `optimise startup` is macOS-first: it scans user LaunchAgents, system LaunchAgents/LaunchDaemons, and app Login Items.
+- Only non-Apple user LaunchAgents under `~/Library/LaunchAgents` are safe automatic disable candidates. System paths, Apple-labelled items, and app Login Items are review/protected and are not disabled by `-f`.
+- Startup optimisation disables items with `launchctl bootout` plus `launchctl disable`; it does not delete plist files.

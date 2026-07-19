@@ -1,4 +1,7 @@
 import type { Database } from "bun:sqlite";
+import { lstat, readdir, realpath, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import type { Project } from "../../db/repositories/project-repository";
 import { ActionRepository } from "../../db/repositories/action-repository";
 import { ProjectRepository } from "../../db/repositories/project-repository";
@@ -6,7 +9,7 @@ import { ScanRepository } from "../../db/repositories/scan-repository";
 import { cleanProjectService } from "../scan-clean/clean-project-service";
 
 export type OptimizeSafety = "safe" | "review" | "protected";
-export type OptimizeCandidateKind = "project" | "command";
+export type OptimizeCandidateKind = "project" | "command" | "filesystem";
 
 export interface OptimizeCandidate {
   id: string;
@@ -21,6 +24,8 @@ export interface OptimizeCandidate {
   projectId?: string;
   projectName?: string;
   run?: string[];
+  path?: string;
+  minAgeDays?: number;
 }
 
 export interface OptimizePreview {
@@ -41,6 +46,7 @@ export async function previewStorageOptimization(projects: Project[]): Promise<O
   const candidates: OptimizeCandidate[] = [
     ...projectCandidates(projects),
     ...(await commandCandidates()),
+    ...(await filesystemCandidates()),
     ...reviewOnlyMacCandidates(),
   ];
 
@@ -80,6 +86,17 @@ export async function applyStorageOptimization(db: Database, preview: OptimizePr
         continue;
       }
 
+      if (candidate.kind === "filesystem" && candidate.path) {
+        const verified = await verifyFilesystemCandidate(candidate);
+        if (!verified.ok) {
+          skipped.push(candidate);
+          continue;
+        }
+        await rm(verified.path, { recursive: verified.isDirectory, force: false });
+        applied.push(candidate);
+        continue;
+      }
+
       skipped.push(candidate);
     } catch (error) {
       failed.push({ candidate, error: error instanceof Error ? error.message : String(error) });
@@ -102,7 +119,7 @@ function projectCandidates(projects: Project[]): OptimizeCandidate[] {
         detail: inactive
           ? "Safe generated files from an inactive indexed project."
           : "Safe generated files, but project looks active/new so it is review-only.",
-        command: `kundol clean ${project.name} --apply --no-dry-run`,
+        command: `kundol optimise projects ${project.path}`,
         safety: inactive ? "safe" : "review",
         defaultSelected: inactive,
         sizeBytes: project.cleanableBytes,
@@ -124,6 +141,28 @@ async function commandCandidates(): Promise<OptimizeCandidate[]> {
     defaultSelected: boolean;
     probe: string[];
   }> = [
+    {
+      id: "command:bun-cache-rm",
+      category: "Package caches",
+      label: "Bun cache",
+      detail: "Removes Bun package cache; future installs may re-download.",
+      command: "bun pm cache rm",
+      run: ["bun", "pm", "cache", "rm"],
+      safety: "safe",
+      defaultSelected: true,
+      probe: ["bun", "--version"],
+    },
+    {
+      id: "command:pip-cache-purge",
+      category: "Package caches",
+      label: "pip cache",
+      detail: "Removes pip wheel/download cache; future installs may re-download.",
+      command: "python3 -m pip cache purge",
+      run: ["python3", "-m", "pip", "cache", "purge"],
+      safety: "safe",
+      defaultSelected: true,
+      probe: ["python3", "-m", "pip", "--version"],
+    },
     {
       id: "command:npm-cache-verify",
       category: "Package caches",
@@ -201,19 +240,50 @@ async function commandCandidates(): Promise<OptimizeCandidate[]> {
   return candidates;
 }
 
+async function filesystemCandidates(): Promise<OptimizeCandidate[]> {
+  const candidates: OptimizeCandidate[] = [];
+  const tempRoot = tmpdir();
+  let entries;
+  try {
+    entries = await readdir(tempRoot, { withFileTypes: true });
+  } catch {
+    return candidates;
+  }
+
+  const now = Date.now();
+  const minAgeDays = 7;
+  const minAgeMs = minAgeDays * 86_400_000;
+  for (const entry of entries.sort((a, b) => a.name.localeCompare(b.name))) {
+    if (entry.isSymbolicLink()) continue;
+    const absolutePath = path.join(tempRoot, entry.name);
+    try {
+      const info = await lstat(absolutePath);
+      if (now - info.mtimeMs < minAgeMs) continue;
+      if (!info.isDirectory() && !info.isFile()) continue;
+      const sizeBytes = info.isDirectory() ? await sizePath(absolutePath) : info.size;
+      candidates.push({
+        id: `filesystem:tmp:${entry.name}`,
+        kind: "filesystem",
+        category: "Temporary files",
+        label: `Old temp ${entry.name}`,
+        detail: `Removes a top-level temp ${info.isDirectory() ? "directory" : "file"} older than ${minAgeDays} days.`,
+        command: `rm -rf ${absolutePath}`,
+        safety: "safe",
+        defaultSelected: true,
+        sizeBytes,
+        path: absolutePath,
+        minAgeDays,
+      });
+    } catch {
+      continue;
+    }
+  }
+
+  return candidates;
+}
+
 function reviewOnlyMacCandidates(): OptimizeCandidate[] {
   return [
-    {
-      id: "review:tmp",
-      kind: "command",
-      category: "macOS review-only",
-      label: "Temporary folders",
-      detail: "Broad /tmp or $TMPDIR cleanup may remove active app state; preview only.",
-      command: "review only",
-      safety: "review",
-      defaultSelected: false,
-      sizeBytes: null,
-    },
     {
       id: "review:user-caches",
       kind: "command",
@@ -237,6 +307,43 @@ function reviewOnlyMacCandidates(): OptimizeCandidate[] {
       sizeBytes: null,
     },
   ];
+}
+
+async function verifyFilesystemCandidate(candidate: OptimizeCandidate): Promise<{ ok: true; path: string; isDirectory: boolean } | { ok: false }> {
+  if (!candidate.path || !candidate.minAgeDays) return { ok: false };
+  const tempRoot = await realpath(tmpdir());
+  let targetRealPath;
+  let info;
+  try {
+    info = await lstat(candidate.path);
+    if (info.isSymbolicLink()) return { ok: false };
+    targetRealPath = await realpath(candidate.path);
+  } catch {
+    return { ok: false };
+  }
+
+  const relative = path.relative(tempRoot, targetRealPath);
+  if (!relative || relative.startsWith("..") || path.isAbsolute(relative)) return { ok: false };
+  if (!info.isDirectory() && !info.isFile()) return { ok: false };
+  const minAgeMs = candidate.minAgeDays * 86_400_000;
+  if (Date.now() - info.mtimeMs < minAgeMs) return { ok: false };
+  return { ok: true, path: targetRealPath, isDirectory: info.isDirectory() };
+}
+
+async function sizePath(targetPath: string): Promise<number> {
+  const info = await lstat(targetPath);
+  if (!info.isDirectory() || info.isSymbolicLink()) return info.size;
+  let total = 0;
+  const entries = await readdir(targetPath, { withFileTypes: true });
+  for (const entry of entries) {
+    if (entry.isSymbolicLink()) continue;
+    try {
+      total += await sizePath(path.join(targetPath, entry.name));
+    } catch {
+      continue;
+    }
+  }
+  return total;
 }
 
 function createScanRepositories(db: Database) {

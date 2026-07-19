@@ -1,22 +1,10 @@
-import { rm } from "node:fs/promises";
-import { join, relative, resolve } from "node:path";
-import { loadKundolConfig } from "../config/load-config";
-import { getKundolHomePath } from "../config/paths";
-import { saveKundolConfig } from "../config/save-config";
-import { archiveBeforeCleanDaysKey, readTypedSettings } from "../config/settings";
+import { createInterface } from "node:readline/promises";
+import { stdin as input, stdout as output } from "node:process";
 import { openKundolDatabase } from "../db/client";
 import { ActionRepository } from "../db/repositories/action-repository";
 import { ProjectRepository, type Project } from "../db/repositories/project-repository";
-import { ScanRepository } from "../db/repositories/scan-repository";
-import { analyzeProjectCleanup } from "../core/analysis/analyzer";
-import type { ScanItem } from "../core/analysis/cleanable-item";
-import { runIndexWorker } from "../core/workers/index-worker";
-import type { RuntimeFamily } from "../core/safety/types";
-import { exitCodes, type ExitCode } from "../shared/exit-codes";
-import type { Output } from "../shared/output";
-import { canRunOpenTuiDashboard, runOpenTuiDashboard } from "../tui/opentui-dashboard";
+import { formatBytes } from "../core/registry/format";
 import { recordSessionAudit } from "../services/audit/session-audit-log";
-import { archiveProjectFolder, getProjectArchivePlan } from "../services/archive/project-archive-service";
 import {
   applyStorageOptimization,
   previewStorageOptimization,
@@ -24,9 +12,23 @@ import {
   type OptimizeCandidate,
   type OptimizePreview,
 } from "../services/optimize";
+import {
+  applyProjectOptimisePlan,
+  scanProjectOptimiseTargets,
+  type ProjectOptimiseApplyResult,
+  type ProjectOptimiseCandidate,
+  type ProjectOptimisePlan,
+} from "../services/project-optimizer";
+import {
+  applyStartupOptimisePlan,
+  scanStartupOptimiseTargets,
+  type StartupApplyResult,
+  type StartupCandidate,
+  type StartupOptimisePlan,
+} from "../services/startup-optimizer";
+import { exitCodes, type ExitCode } from "../shared/exit-codes";
+import type { Output } from "../shared/output";
 import { formatWelcomeMessage } from "./welcome";
-
-const DASHBOARD_TOP_PROJECT_LIMIT = 8;
 
 export interface CommandResult {
   exitCode: ExitCode;
@@ -38,517 +40,143 @@ export interface CommandContext {
   homeDir?: string;
 }
 
-export interface InitOptions {
-  workspace?: string[];
-  index: boolean;
-}
-
-export interface IndexOptions {
-  workspace?: string;
-  all: boolean;
+export interface OptimiseRunOptions {
+  force: boolean;
   json: boolean;
 }
 
-export interface DashboardOptions {
-  json: boolean;
+export interface OptimiseProjectsOptions extends OptimiseRunOptions {
+  maxDepth: number;
 }
-
-export interface ListOptions {
-  status?: string;
-  runtime?: string;
-  tag?: string;
-  search?: string;
-  scanned?: boolean;
-  sort?: string;
-  json: boolean;
-}
-
-export interface JsonOptions {
-  json: boolean;
-}
-
-export interface ConfigOptions extends JsonOptions {
-  archiveBeforeCleanDays?: number;
-}
-
-export interface ScanOptions {
-  json: boolean;
-  largest: boolean;
-}
-
-export interface CleanOptions {
-  dryRun: boolean;
-  apply: boolean;
-  only?: string;
-}
-
-export interface OptimizeOptions extends JsonOptions {
-  dryRun: boolean;
-  apply: boolean;
-}
-
-type MaybePromiseResult = CommandResult | Promise<CommandResult>;
 
 const ok: CommandResult = { exitCode: exitCodes.ok };
 
-export async function openDefaultTui(context: CommandContext): Promise<CommandResult> {
-  if (canRunOpenTuiDashboard()) {
-    try {
-      recordSessionAudit(context, { action: "TUI_OPEN" });
-      const demoMs = readOpenTuiDemoMs();
-      await runOpenTuiDashboard(context, demoMs ? { demoMs } : {});
-      recordSessionAudit(context, { action: "TUI_CLOSE" });
-      return ok;
-    } catch (error) {
-      context.output.writeError(`OpenTUI unavailable; falling back to text dashboard. ${formatError(error)}`);
-    }
-  }
-
+export function showWelcome(context: CommandContext): CommandResult {
   context.output.writeLine(formatWelcomeMessage());
-  return showDashboard(context, { json: false });
-}
-
-export async function initProject(context: CommandContext, options: InitOptions): Promise<CommandResult> {
-  recordSessionAudit(context, { action: "INIT" });
-  const workspaces = (options.workspace ?? []).map((workspace) => resolve(workspace));
-
-  if (workspaces.length === 0) {
-    context.output.writeError("Provide at least one workspace: kundol init --workspace ~/Projects");
-    return { exitCode: exitCodes.usage };
-  }
-
-  const config = saveKundolConfig({ workspaces: workspaces.map((path) => ({ path })) }, dbOptions(context));
-  context.output.writeLine(`Initialized kundol at ${config.databasePath}`);
-  for (const workspace of config.workspaces) {
-    context.output.writeLine(`Workspace: ${workspace.path}`);
-  }
-
-  if (options.index) {
-    context.output.writeLine("");
-    return indexWorkspaces(context, { all: true, json: false });
-  }
-
+  context.output.writeLine("Examples:");
+  context.output.writeLine("  kundol optimise storage");
+  context.output.writeLine("  kundol optimise storage -f");
+  context.output.writeLine("  kundol optimise startup");
+  context.output.writeLine("  kundol optimise projects ~/Projects -f");
   return ok;
 }
 
-export async function indexWorkspaces(context: CommandContext, options: IndexOptions): Promise<CommandResult> {
-  recordSessionAudit(context, { action: "INDEX" });
-  const config = loadKundolConfig(dbOptions(context));
-  const workspaceRoots = options.workspace
-    ? [resolve(options.workspace)]
-    : config.workspaces.filter((workspace) => workspace.enabled).map((workspace) => workspace.path);
-
-  if (workspaceRoots.length === 0) {
-    context.output.writeError("No workspace configured. Run `kundol init --workspace <path>` first.");
-    return { exitCode: exitCodes.usage };
-  }
-
-  const result = await runIndexWorker({
-    workspaceRoots,
-    excludedPaths: config.excludedPaths.map((excludedPath) => excludedPath.path),
-  });
-
-  const connection = openKundolDatabase(dbOptions(context));
-  try {
-    const projects = new ProjectRepository(connection.db, { now: () => new Date() });
-    const actions = new ActionRepository(connection.db, { now: () => new Date() });
-    const indexedAt = new Date().toISOString();
-
-    for (const project of result.projects) {
-      const existing = projects.findByPath(project.path);
-      const status = inferLifecycleStatus({
-        ...(existing?.status ? { existingStatus: existing.status } : {}),
-        lastModifiedAt: project.lastModifiedAt,
-        now: new Date(),
-      });
-
-      projects.upsert({
-        path: project.path,
-        name: project.name,
-        primaryRuntime: project.type.primaryRuntime,
-        runtimes: project.type.runtimes,
-        status,
-        sizeBytes: project.sizeBytes,
-        gitRemoteUrl: project.git.remoteUrl,
-        gitBranch: project.git.branch,
-        gitDirty: project.git.dirty ?? false,
-        lastIndexedAt: indexedAt,
-      });
-    }
-
-    actions.record({
-      actionType: "INDEX",
-      details: {
-        workspaceRoots,
-        projectCount: result.projects.length,
-        warningCount: result.warnings.length,
-        elapsedMs: result.elapsedMs,
-      },
-    });
-  } finally {
-    connection.close();
-  }
-
-  if (options.json) {
-    writeJson(context, result);
-    return ok;
-  }
-
-  context.output.writeLine(`Indexed ${result.projects.length} project(s) across ${result.workspacesIndexed} workspace(s).`);
-  context.output.writeLine(`Skipped ${result.skippedDirectories} generated/internal directorie(s).`);
-  if (result.warnings.length > 0) {
-    context.output.writeLine(`Warnings: ${result.warnings.length}`);
-  }
-  return ok;
-}
-
-export function showDashboard(context: CommandContext, options: DashboardOptions): CommandResult {
-  recordSessionAudit(context, { action: options.json ? "DASHBOARD_JSON" : "DASHBOARD" });
+export async function optimiseStorage(context: CommandContext, options: OptimiseRunOptions): Promise<CommandResult> {
+  recordSessionAudit(context, { action: "STORAGE_SCAN" });
   const projects = readProjects(context);
-  const counts = countBy(projects, (project) => project.status);
-  const totalSizeBytes = sum(projects.map((project) => project.sizeBytes));
-  const cleanableBytes = sum(projects.map((project) => project.cleanableBytes));
-  const topProjects = [...projects].sort((a, b) => b.sizeBytes - a.sizeBytes).slice(0, DASHBOARD_TOP_PROJECT_LIMIT);
-  const payload = { projectCount: projects.length, counts, totalSizeBytes, cleanableBytes, topProjects };
-
-  if (options.json) {
-    writeJson(context, payload);
-    return ok;
-  }
-
-  context.output.writeLine("kundol dashboard");
-  context.output.writeLine(`Projects: ${projects.length}`);
-  context.output.writeLine(`Total size: ${formatBytes(totalSizeBytes)}`);
-  context.output.writeLine(`Safe cleanup preview: ${formatBytes(cleanableBytes)}`);
-  context.output.writeLine("");
-  context.output.writeLine("By status:");
-  for (const [status, count] of Object.entries(counts).sort()) {
-    context.output.writeLine(`  ${status}: ${count}`);
-  }
-  context.output.writeLine("");
-  context.output.writeLine("Top space consumers:");
-  for (const project of topProjects) {
-    context.output.writeLine(`  ${project.name}  ${formatBytes(project.sizeBytes)}  ${project.path}`);
-  }
-  return ok;
-}
-
-export function listProjects(context: CommandContext, options: ListOptions): CommandResult {
-  recordSessionAudit(context, { action: options.json ? "LIST_JSON" : "LIST" });
-  let projects = readProjects(context);
-
-  if (options.status) {
-    projects = projects.filter((project) => project.status.toLowerCase() === options.status!.toLowerCase());
-  }
-  if (options.runtime) {
-    projects = projects.filter((project) => project.runtimes.some((runtime) => runtime.toLowerCase() === options.runtime!.toLowerCase()));
-  }
-  if (options.search) {
-    const query = options.search.toLowerCase();
-    projects = projects.filter((project) =>
-      [project.name, project.path, project.notes ?? "", project.gitRemoteUrl ?? ""].some((value) =>
-        value.toLowerCase().includes(query),
-      ),
-    );
-  }
-  if (options.scanned) {
-    projects = projects.filter((project) => project.lastScannedAt !== null);
-  }
-  if (options.tag) {
-    context.output.writeError("Tag filtering is not available until tag write workflows are implemented.");
-    return { exitCode: exitCodes.usage };
-  }
-
-  projects = sortProjects(projects, options.sort);
-
-  if (options.json) {
-    writeJson(context, projects);
-    return ok;
-  }
-
-  if (projects.length === 0) {
-    context.output.writeLine("No projects found. Run `kundol index` after configuring a workspace.");
-    return ok;
-  }
-
-  context.output.writeLine(formatProjectTable(projects));
-  return ok;
-}
-
-export function showProject(context: CommandContext, project: string, options: JsonOptions): CommandResult {
-  const found = findProject(context, project);
-  if (!found) {
-    context.output.writeError(`Project not found: ${project}`);
-    return { exitCode: exitCodes.usage };
-  }
-  recordSessionAudit(context, { action: options.json ? "SHOW_JSON" : "SHOW", projectName: found.name });
-
-  if (options.json) {
-    writeJson(context, found);
-    return ok;
-  }
-
-  context.output.writeLine(found.name);
-  context.output.writeLine(`Path: ${found.path}`);
-  context.output.writeLine(`Status: ${found.status}`);
-  context.output.writeLine(`Runtime: ${found.primaryRuntime ?? "unknown"} (${found.runtimes.join(", ") || "none"})`);
-  context.output.writeLine(`Size: ${formatBytes(found.sizeBytes)}`);
-  context.output.writeLine(`Cleanable: ${formatBytes(found.cleanableBytes)}`);
-  context.output.writeLine(`Git: ${found.gitBranch ?? "-"} ${found.gitDirty ? "(dirty)" : "(clean)"}`);
-  if (found.gitRemoteUrl) context.output.writeLine(`Remote: ${found.gitRemoteUrl}`);
-  context.output.writeLine(`Last indexed: ${found.lastIndexedAt ?? "-"}`);
-  context.output.writeLine(`Last scanned: ${found.lastScannedAt ?? "-"}`);
-  return ok;
-}
-
-export async function scanProject(context: CommandContext, project: string, options: ScanOptions): Promise<CommandResult> {
-  const found = findProject(context, project);
-  if (!found) {
-    context.output.writeError(`Project not found: ${project}`);
-    return { exitCode: exitCodes.usage };
-  }
-  recordSessionAudit(context, { action: options.json ? "PROJECT_SCAN_JSON" : "PROJECT_SCAN", projectName: found.name });
-
-  const result = await analyzeProjectCleanup({
-    projectPath: found.path,
-    projectId: found.id,
-    projectName: found.name,
-    runtimes: toRuntimeFamilies(found.runtimes),
-    status: found.status,
-    largestLimit: options.largest ? 20 : 5,
+  const preview = await withSpinner("Scanning storage targets", () => previewStorageOptimization(projects));
+  recordAction(context, "STORAGE_SCAN", {
+    candidateCount: preview.candidates.length,
+    safeSelectedCount: preview.safeSelectedCount,
+    knownReclaimableBytes: preview.knownReclaimableBytes,
   });
 
+  if (options.json) {
+    writeJson(context, preview);
+  } else {
+    writeStoragePlan(context, preview);
+  }
+
+  if (!(await shouldContinue(context, options.force, `Proceed with ${preview.safeSelectedCount} storage cleanup action(s)?`))) {
+    recordSessionAudit(context, { action: "STORAGE_CANCELLED" });
+    recordAction(context, "STORAGE_CANCELLED", { candidateCount: preview.candidates.length });
+    if (!options.json) context.output.writeLine("Cancelled. No storage targets were removed.");
+    return ok;
+  }
+
+  recordSessionAudit(context, { action: "STORAGE_OPTIMISE" });
   const connection = openKundolDatabase(dbOptions(context));
   try {
-    const scans = new ScanRepository(connection.db, { now: () => new Date() });
-    const actions = new ActionRepository(connection.db, { now: () => new Date() });
-    const scan = scans.create({
-      projectId: found.id,
-      totalSizeBytes: result.summary.totalSizeBytes,
-      cleanableBytes: result.summary.safeCleanupBytes,
-      itemCount: result.items.length,
-      recommendationCount: result.recommendations.length,
-      details: {
-        warnings: result.warnings,
-        recommendations: result.recommendations,
-      },
-    });
-
-    for (const item of result.items) {
-      scans.createItem({
-        scanId: scan.id,
-        projectId: found.id,
-        path: item.path,
-        kind: item.kind,
-        safety: item.classification,
-        sizeBytes: item.sizeBytes,
-        reason: item.reason,
-        metadata: {
-          absolutePath: item.absolutePath,
-          ruleId: item.ruleId,
-          canAutoClean: item.canAutoClean,
-        },
-      });
-    }
-
-    actions.record({
-      projectId: found.id,
-      actionType: "PROJECT_SCAN",
-      details: {
-        scanId: scan.id,
-        cleanableBytes: result.summary.safeCleanupBytes,
-        itemCount: result.items.length,
-      },
-    });
-  } finally {
-    connection.close();
-  }
-
-  if (options.json) {
-    writeJson(context, result);
-    return ok;
-  }
-
-  context.output.writeLine(`Scanned ${found.name}`);
-  context.output.writeLine(`Total size: ${formatBytes(result.summary.totalSizeBytes)}`);
-  context.output.writeLine(`Safe cleanup: ${formatBytes(result.summary.safeCleanupBytes)}`);
-  context.output.writeLine(`Caution: ${formatBytes(result.summary.cautionBytes)}`);
-  context.output.writeLine(`Protected: ${formatBytes(result.summary.protectedBytes)}`);
-  context.output.writeLine("");
-  context.output.writeLine("Recommendations:");
-  for (const recommendation of result.recommendations) {
-    context.output.writeLine(`  [${recommendation.priority}] ${recommendation.message}`);
-  }
-  if (options.largest) {
-    context.output.writeLine("");
-    context.output.writeLine("Largest detected items:");
-    for (const item of result.largestItems) {
-      context.output.writeLine(`  ${formatBytes(item.sizeBytes)}  ${item.classification}  ${item.path}`);
-    }
-  }
-  return ok;
-}
-
-export async function cleanProject(context: CommandContext, project: string, options: CleanOptions): Promise<CommandResult> {
-  const found = findProject(context, project);
-  if (!found) {
-    context.output.writeError(`Project not found: ${project}`);
-    return { exitCode: exitCodes.usage };
-  }
-  const cleanAction = options.apply && !options.dryRun ? "CLEAN_APPLY" : "CLEAN_DRY_RUN";
-  recordSessionAudit(context, { action: cleanAction, projectName: found.name });
-
-  const result = await analyzeProjectCleanup({
-    projectPath: found.path,
-    projectId: found.id,
-    projectName: found.name,
-    runtimes: toRuntimeFamilies(found.runtimes),
-    status: found.status,
-  });
-  let safeItems = result.items.filter((item) => item.classification === "safe" && item.canAutoClean);
-  if (options.only) {
-    safeItems = safeItems.filter((item) => item.ruleId === options.only || item.kind === options.only);
-  }
-
-  const apply = options.apply && !options.dryRun;
-  const totalBytes = sum(safeItems.map((item) => item.sizeBytes));
-  const config = loadKundolConfig(dbOptions(context));
-  const settings = readTypedSettings(config.settings);
-  const archivePlan = await getProjectArchivePlan(found.path, settings.archiveBeforeCleanDays);
-
-  if (!apply) {
-    context.output.writeLine(`Dry run: ${safeItems.length} safe item(s), ${formatBytes(totalBytes)} reclaimable.`);
-    context.output.writeLine(
-      archivePlan.eligible
-        ? `Archive: would create local tar.gz before apply; last opened ${formatAgeDays(archivePlan.ageDays)} ago, threshold ${archivePlan.thresholdDays} day(s).`
-        : `Archive: not needed; last opened ${formatAgeDays(archivePlan.ageDays)} ago, threshold ${archivePlan.thresholdDays} day(s).`,
-    );
-    for (const item of safeItems.slice(0, 30)) {
-      context.output.writeLine(`  ${formatBytes(item.sizeBytes)}  ${item.path}`);
-    }
-    context.output.writeLine(`Apply safe cleanup: kundol clean ${found.name} --apply --no-dry-run`);
-    recordCleanAction(context, found.id, "CLEAN_DRY_RUN", { itemCount: safeItems.length, totalBytes, archivePlan });
-    return ok;
-  }
-
-  const archive = await archiveProjectFolder({
-    projectPath: found.path,
-    projectName: found.name,
-    archiveRoot: getArchiveRoot(context),
-    thresholdDays: settings.archiveBeforeCleanDays,
-  });
-  for (const item of safeItems) {
-    await removeSafeItem(found.path, item);
-  }
-  recordCleanAction(context, found.id, "CLEAN_APPLY", { itemCount: safeItems.length, totalBytes, archive });
-  if (archive) {
-    context.output.writeLine(`Archived project to ${archive.archivePath}`);
-  }
-  context.output.writeLine(`Removed ${safeItems.length} safe generated item(s), reclaiming about ${formatBytes(totalBytes)}.`);
-  return ok;
-}
-
-export async function optimizeStorage(context: CommandContext, options: OptimizeOptions): Promise<CommandResult> {
-  const apply = options.apply && !options.dryRun;
-  recordSessionAudit(context, { action: apply ? "OPTIMIZE_APPLY" : "OPTIMIZE_DRY_RUN" });
-  const projects = readProjects(context);
-  const preview = await previewStorageOptimization(projects);
-
-  if (!apply) {
+    const result = await withSpinner("Optimising storage", () => applyStorageOptimization(connection.db, preview));
+    recordAction(context, "STORAGE_OPTIMISE", summarizeStorageResult(result));
     if (options.json) {
-      writeJson(context, preview);
-      return ok;
+      writeJson(context, { preview, result });
+    } else {
+      writeStorageReport(context, result);
     }
-    writeOptimizePreview(context, preview);
-    return ok;
-  }
-
-  const connection = openKundolDatabase(dbOptions(context));
-  try {
-    const result = await applyStorageOptimization(connection.db, preview);
-    const nextPreview = await previewStorageOptimization(readProjects(context));
-    if (options.json) {
-      writeJson(context, { result, nextPreview });
-      return result.failed.length > 0 ? { exitCode: exitCodes.software } : ok;
-    }
-    writeOptimizeApplySummary(context, result, nextPreview);
     return result.failed.length > 0 ? { exitCode: exitCodes.software } : ok;
   } finally {
     connection.close();
   }
 }
 
-export async function showRuntimes(context: CommandContext, options: JsonOptions): Promise<CommandResult> {
-  recordSessionAudit(context, { action: options.json ? "RUNTIMES_JSON" : "RUNTIMES" });
-  const runtimes = await Promise.all([
-    detectTool("node", ["--version"]),
-    detectTool("npm", ["--version"]),
-    detectTool("pnpm", ["--version"]),
-    detectTool("yarn", ["--version"]),
-    detectTool("bun", ["--version"]),
-    detectTool("deno", ["--version"]),
-    detectTool("python3", ["--version"]),
-    detectTool("go", ["version"]),
-    detectTool("rustc", ["--version"]),
-    detectTool("cargo", ["--version"]),
-    detectTool("java", ["--version"]),
-    detectTool("dotnet", ["--version"]),
-  ]);
+export async function optimiseProjects(
+  context: CommandContext,
+  workdir: string,
+  options: OptimiseProjectsOptions,
+): Promise<CommandResult> {
+  recordSessionAudit(context, { action: "PROJECTS_SCAN", projectName: workdir });
+  const plan = await withSpinner("Scanning project targets", () =>
+    scanProjectOptimiseTargets(workdir, { maxDepth: options.maxDepth }),
+  );
+  recordAction(context, "PROJECTS_SCAN", {
+    workdir: plan.workdir,
+    maxDepth: plan.maxDepth,
+    projectCount: plan.projects.length,
+    candidateCount: plan.candidates.length,
+    totalBytes: plan.totalBytes,
+    warningCount: plan.warnings.length,
+  });
 
   if (options.json) {
-    writeJson(context, runtimes);
+    writeJson(context, plan);
+  } else {
+    writeProjectPlan(context, plan);
+  }
+
+  if (!(await shouldContinue(context, options.force, `Proceed with ${plan.candidates.length} project cleanup target(s)?`))) {
+    recordSessionAudit(context, { action: "PROJECTS_CANCELLED", projectName: plan.workdir });
+    recordAction(context, "PROJECTS_CANCELLED", { workdir: plan.workdir, candidateCount: plan.candidates.length });
+    if (!options.json) context.output.writeLine("Cancelled. No project targets were removed.");
     return ok;
   }
 
-  context.output.writeLine("Local runtimes");
-  for (const runtime of runtimes) {
-    const value = runtime.available ? runtime.version : "missing";
-    context.output.writeLine(`  ${runtime.name}: ${value}`);
+  recordSessionAudit(context, { action: "PROJECTS_OPTIMISE", projectName: plan.workdir });
+  const result = await withSpinner("Optimising projects", () => applyProjectOptimisePlan(plan));
+  recordAction(context, "PROJECTS_OPTIMISE", summarizeProjectResult(result, plan));
+  if (options.json) {
+    writeJson(context, { plan, result });
+  } else {
+    writeProjectReport(context, result);
   }
-  return ok;
+  return result.failed.length > 0 ? { exitCode: exitCodes.software } : ok;
 }
 
-export function showConfig(context: CommandContext, options: JsonOptions): CommandResult {
-  recordSessionAudit(context, { action: options.json ? "CONFIG_JSON" : "CONFIG" });
-  const config = loadKundolConfig(dbOptions(context));
-  const settings = readTypedSettings(config.settings);
-  if (options.json) {
-    writeJson(context, { ...config, typedSettings: settings });
-    return ok;
-  }
-  context.output.writeLine(`Database: ${config.databasePath}`);
-  context.output.writeLine(`Session logs: ${join(getKundolHomePath(dbOptions(context)), "sessions")}`);
-  context.output.writeLine(`Initialized: ${config.initialized ? "yes" : "no"}`);
-  context.output.writeLine("Settings:");
-  context.output.writeLine(`  archive before clean days: ${settings.archiveBeforeCleanDays}`);
-  context.output.writeLine("Workspaces:");
-  for (const workspace of config.workspaces) {
-    context.output.writeLine(`  ${workspace.enabled ? "enabled" : "disabled"}  ${workspace.path}`);
-  }
-  context.output.writeLine("Excluded paths:");
-  for (const excludedPath of config.excludedPaths) {
-    context.output.writeLine(`  ${excludedPath.path}${excludedPath.reason ? ` (${excludedPath.reason})` : ""}`);
-  }
-  return ok;
-}
-
-export function updateConfig(context: CommandContext, options: ConfigOptions): CommandResult {
-  recordSessionAudit(context, { action: options.json ? "CONFIG_UPDATE_JSON" : "CONFIG_UPDATE" });
-  const settings: Record<string, unknown> = {};
-  if (options.archiveBeforeCleanDays !== undefined) {
-    settings[archiveBeforeCleanDaysKey] = options.archiveBeforeCleanDays;
-  }
-  const config = saveKundolConfig({ settings }, dbOptions(context));
-  const typedSettings = readTypedSettings(config.settings);
+export async function optimiseStartup(context: CommandContext, options: OptimiseRunOptions): Promise<CommandResult> {
+  recordSessionAudit(context, { action: "STARTUP_SCAN" });
+  const plan = await withSpinner("Scanning startup targets", () => scanStartupOptimiseTargets(dbOptions(context)));
+  recordAction(context, "STARTUP_SCAN", {
+    platform: plan.platform,
+    candidateCount: plan.candidates.length,
+    safeCount: plan.safeCount,
+    reviewCount: plan.reviewCount,
+    protectedCount: plan.protectedCount,
+    warningCount: plan.warnings.length,
+  });
 
   if (options.json) {
-    writeJson(context, { ...config, typedSettings });
+    writeJson(context, plan);
+  } else {
+    writeStartupPlan(context, plan);
+  }
+
+  const candidateIds = await selectStartupCandidates(context, plan, options.force);
+  if (candidateIds.length === 0) {
+    recordSessionAudit(context, { action: "STARTUP_CANCELLED" });
+    recordAction(context, "STARTUP_CANCELLED", { candidateCount: plan.candidates.length });
+    if (!options.json) context.output.writeLine("Cancelled. No startup items were disabled.");
     return ok;
   }
 
-  context.output.writeLine("Saved kundol config.");
-  context.output.writeLine(`Archive before clean days: ${typedSettings.archiveBeforeCleanDays}`);
-  return ok;
+  recordSessionAudit(context, { action: "STARTUP_OPTIMISE" });
+  const result = await withSpinner("Optimising startup", () => applyStartupOptimisePlan(plan, { ...dbOptions(context), candidateIds }));
+  recordAction(context, "STARTUP_OPTIMISE", summarizeStartupResult(result));
+  if (options.json) {
+    writeJson(context, { plan, result });
+  } else {
+    writeStartupReport(context, result);
+  }
+  return result.failed.length > 0 ? { exitCode: exitCodes.software } : ok;
 }
 
 function readProjects(context: CommandContext): Project[] {
@@ -560,52 +188,239 @@ function readProjects(context: CommandContext): Project[] {
   }
 }
 
-function findProject(context: CommandContext, identifier: string): Project | null {
-  const connection = openKundolDatabase({ ...dbOptions(context), readonly: false });
-  try {
-    return new ProjectRepository(connection.db, { now: () => new Date() }).findByIdentifier(identifier);
-  } finally {
-    connection.close();
-  }
-}
-
-function recordCleanAction(
-  context: CommandContext,
-  projectId: string,
-  actionType: string,
-  details: Record<string, unknown>,
-): void {
+function recordAction(context: CommandContext, actionType: string, details: Record<string, unknown>): void {
   const connection = openKundolDatabase(dbOptions(context));
   try {
-    new ActionRepository(connection.db, { now: () => new Date() }).record({ projectId, actionType, details });
+    new ActionRepository(connection.db, { now: () => new Date() }).record({ actionType, details });
   } finally {
     connection.close();
   }
 }
 
-async function removeSafeItem(projectPath: string, item: ScanItem): Promise<void> {
-  const resolvedProject = resolve(projectPath);
-  const resolvedTarget = resolve(item.absolutePath);
-  const relativeTarget = relative(resolvedProject, resolvedTarget);
-  if (relativeTarget.startsWith("..") || relativeTarget === "" || resolve(resolvedProject, relativeTarget) !== resolvedTarget) {
-    throw new Error(`Refusing to remove path outside project: ${item.absolutePath}`);
+async function shouldContinue(context: CommandContext, force: boolean, question: string): Promise<boolean> {
+  if (force) return true;
+  if (!process.stdin.isTTY) {
+    context.output.writeError("Confirmation requires an interactive terminal. Re-run with -f to skip the prompt.");
+    return false;
   }
-  await rm(resolvedTarget, { recursive: true, force: true });
+  const reader = createInterface({ input, output });
+  try {
+    const answer = await reader.question(`${question} [y/N] `);
+    return answer.trim().toLowerCase() === "y" || answer.trim().toLowerCase() === "yes";
+  } finally {
+    reader.close();
+  }
 }
 
-function inferLifecycleStatus(input: {
-  existingStatus?: string;
-  lastModifiedAt: Date | null;
-  now: Date;
-}): string {
-  if (input.existingStatus === "ARCHIVED" || input.existingStatus === "DELETED") {
-    return input.existingStatus;
+async function selectStartupCandidates(context: CommandContext, plan: StartupOptimisePlan, force: boolean): Promise<string[]> {
+  const safeCandidates = plan.candidates.filter((candidate) => candidate.safety === "safe" && candidate.defaultSelected);
+  if (force) return safeCandidates.map((candidate) => candidate.id);
+  if (safeCandidates.length === 0) return [];
+  if (!process.stdin.isTTY) {
+    context.output.writeError("Startup selection requires an interactive terminal. Re-run with -f to disable all listed startup items.");
+    return [];
   }
-  if (!input.lastModifiedAt) return input.existingStatus ?? "NEW";
-  const ageDays = (input.now.getTime() - input.lastModifiedAt.getTime()) / 86_400_000;
-  if (ageDays <= 30) return "ACTIVE";
-  if (ageDays <= 120) return "PAUSED";
-  return "STALE";
+  const reader = createInterface({ input, output });
+  try {
+    const answer = await reader.question("Disable which startup items? Enter numbers, `all`, or blank to cancel: ");
+    const value = answer.trim().toLowerCase();
+    if (value === "") return [];
+    if (value === "all" || value === "a") return safeCandidates.map((candidate) => candidate.id);
+    const selected = new Set<string>();
+    for (const token of value.split(/[,\s]+/).filter(Boolean)) {
+      const index = Number.parseInt(token, 10);
+      if (Number.isInteger(index) && index >= 1 && index <= safeCandidates.length) {
+        selected.add(safeCandidates[index - 1]!.id);
+      }
+    }
+    return [...selected];
+  } finally {
+    reader.close();
+  }
+}
+
+async function withSpinner<T>(label: string, run: () => Promise<T>): Promise<T> {
+  if (!process.stderr.isTTY) return run();
+  const frames = ["|", "/", "-", "\\"];
+  let index = 0;
+  process.stderr.write(`${label} ${frames[index]}`);
+  const timer = setInterval(() => {
+    index = (index + 1) % frames.length;
+    process.stderr.write(`\r${label} ${frames[index]}`);
+  }, 90);
+  try {
+    return await run();
+  } finally {
+    clearInterval(timer);
+    process.stderr.write(`\r${label} done\n`);
+  }
+}
+
+function writeStoragePlan(context: CommandContext, preview: OptimizePreview): void {
+  const selected = preview.candidates.filter((candidate) => candidate.safety === "safe" && candidate.defaultSelected);
+  context.output.writeLine("Storage optimisation plan");
+  context.output.writeLine(`Targets: ${selected.length}`);
+  context.output.writeLine(`Known reclaimable: ${formatBytes(preview.knownReclaimableBytes)}`);
+  context.output.writeLine("");
+  context.output.writeLine("Will remove or run:");
+  writeStorageCandidates(context, selected, 40);
+}
+
+function writeStorageReport(context: CommandContext, result: OptimizeApplyResult): void {
+  context.output.writeLine("Storage optimisation report");
+  context.output.writeLine(`Removed/optimised: ${result.applied.length}`);
+  context.output.writeLine(`Failed: ${result.failed.length}`);
+  context.output.writeLine(`Skipped: ${result.skipped.length}`);
+  context.output.writeLine("");
+  context.output.writeLine("Final cleanup targets:");
+  writeStorageCandidates(context, result.applied, 80);
+  if (result.failed.length > 0) {
+    context.output.writeLine("");
+    context.output.writeLine("Errors:");
+    for (const failure of result.failed) {
+      context.output.writeLine(`  ${failure.candidate.label}: ${failure.error}`);
+    }
+  }
+}
+
+function writeProjectPlan(context: CommandContext, plan: ProjectOptimisePlan): void {
+  context.output.writeLine("Project optimisation plan");
+  context.output.writeLine(`Workdir: ${plan.workdir}`);
+  context.output.writeLine(`Max depth: ${plan.maxDepth}`);
+  context.output.writeLine(`Projects found: ${plan.projects.length}`);
+  context.output.writeLine(`Cleanup targets: ${plan.candidates.length}`);
+  context.output.writeLine(`Estimated reclaimable: ${formatBytes(plan.totalBytes)}`);
+  context.output.writeLine("");
+  context.output.writeLine("Will remove:");
+  writeProjectCandidates(context, plan.candidates, 80);
+  if (plan.warnings.length > 0) {
+    context.output.writeLine("");
+    context.output.writeLine(`Warnings: ${plan.warnings.length}`);
+  }
+}
+
+function writeProjectReport(context: CommandContext, result: ProjectOptimiseApplyResult): void {
+  const removedBytes = result.removed.reduce((total, candidate) => total + candidate.sizeBytes, 0);
+  context.output.writeLine("Project optimisation report");
+  context.output.writeLine(`Removed: ${result.removed.length}`);
+  context.output.writeLine(`Failed: ${result.failed.length}`);
+  context.output.writeLine(`Skipped: ${result.skipped.length}`);
+  context.output.writeLine(`Estimated reclaimed: ${formatBytes(removedBytes)}`);
+  context.output.writeLine("");
+  context.output.writeLine("Final cleanup targets:");
+  writeProjectCandidates(context, result.removed, 120);
+  if (result.skipped.length > 0) {
+    context.output.writeLine("");
+    context.output.writeLine("Skipped:");
+    for (const skipped of result.skipped) {
+      context.output.writeLine(`  ${skipped.candidate.absolutePath}: ${skipped.reason}`);
+    }
+  }
+  if (result.failed.length > 0) {
+    context.output.writeLine("");
+    context.output.writeLine("Errors:");
+    for (const failure of result.failed) {
+      context.output.writeLine(`  ${failure.candidate.absolutePath}: ${failure.error}`);
+    }
+  }
+}
+
+function writeStartupPlan(context: CommandContext, plan: StartupOptimisePlan): void {
+  const candidates = plan.candidates.filter((candidate) => candidate.safety === "safe" && candidate.defaultSelected);
+  context.output.writeLine("Startup optimisation plan");
+  context.output.writeLine(`Platform: ${plan.platform}`);
+  context.output.writeLine(`Startup items: ${candidates.length}`);
+  context.output.writeLine("");
+  context.output.writeLine("Will disable:");
+  writeStartupCandidates(context, candidates, 60, true);
+  if (plan.warnings.length > 0) {
+    context.output.writeLine("");
+    context.output.writeLine(`Warnings: ${plan.warnings.length}`);
+  }
+}
+
+function writeStartupReport(context: CommandContext, result: StartupApplyResult): void {
+  context.output.writeLine("Startup optimisation report");
+  context.output.writeLine(`Disabled: ${result.disabled.length}`);
+  context.output.writeLine(`Failed: ${result.failed.length}`);
+  context.output.writeLine(`Skipped: ${result.skipped.length}`);
+  context.output.writeLine("");
+  context.output.writeLine("Final startup targets:");
+  writeStartupCandidates(context, result.disabled, 80, false);
+  if (result.skipped.length > 0) {
+    context.output.writeLine("");
+    context.output.writeLine("Skipped:");
+    for (const skipped of result.skipped) {
+      context.output.writeLine(`  ${skipped.candidate.name}: ${skipped.reason}`);
+    }
+  }
+  if (result.failed.length > 0) {
+    context.output.writeLine("");
+    context.output.writeLine("Errors:");
+    for (const failure of result.failed) {
+      context.output.writeLine(`  ${failure.candidate.name}: ${failure.error}`);
+    }
+  }
+}
+
+function writeStorageCandidates(context: CommandContext, candidates: OptimizeCandidate[], limit: number): void {
+  if (candidates.length === 0) {
+    context.output.writeLine("  none");
+    return;
+  }
+  for (const candidate of candidates.slice(0, limit)) {
+    const size = candidate.sizeBytes === null ? "unknown" : formatBytes(candidate.sizeBytes);
+    context.output.writeLine(`  ${candidate.label}  ${size}  ${candidate.command}`);
+  }
+  if (candidates.length > limit) context.output.writeLine(`  ... ${candidates.length - limit} more`);
+}
+
+function writeProjectCandidates(context: CommandContext, candidates: ProjectOptimiseCandidate[], limit: number): void {
+  if (candidates.length === 0) {
+    context.output.writeLine("  none");
+    return;
+  }
+  for (const candidate of candidates.slice(0, limit)) {
+    context.output.writeLine(`  ${formatBytes(candidate.sizeBytes)}  ${candidate.projectName}  ${candidate.absolutePath}`);
+  }
+  if (candidates.length > limit) context.output.writeLine(`  ... ${candidates.length - limit} more`);
+}
+
+function writeStartupCandidates(context: CommandContext, candidates: StartupCandidate[], limit: number, numbered: boolean): void {
+  if (candidates.length === 0) {
+    context.output.writeLine("  none");
+    return;
+  }
+  for (const [index, candidate] of candidates.slice(0, limit).entries()) {
+    const prefix = numbered ? `${index + 1}.` : "-";
+    context.output.writeLine(`  ${prefix} ${candidate.displayName}  ${candidate.description}  ${candidate.command}`);
+  }
+  if (candidates.length > limit) context.output.writeLine(`  ... ${candidates.length - limit} more`);
+}
+
+function summarizeStorageResult(result: OptimizeApplyResult): Record<string, unknown> {
+  return {
+    applied: result.applied.map((candidate) => candidate.label),
+    skipped: result.skipped.map((candidate) => candidate.label),
+    failed: result.failed.map((failure) => ({ label: failure.candidate.label, error: failure.error })),
+  };
+}
+
+function summarizeProjectResult(result: ProjectOptimiseApplyResult, plan: ProjectOptimisePlan): Record<string, unknown> {
+  return {
+    workdir: plan.workdir,
+    removed: result.removed.map((candidate) => candidate.absolutePath),
+    skipped: result.skipped.map((skipped) => ({ path: skipped.candidate.absolutePath, reason: skipped.reason })),
+    failed: result.failed.map((failure) => ({ path: failure.candidate.absolutePath, error: failure.error })),
+  };
+}
+
+function summarizeStartupResult(result: StartupApplyResult): Record<string, unknown> {
+  return {
+    disabled: result.disabled.map((candidate) => candidate.name),
+    skipped: result.skipped.map((skipped) => ({ name: skipped.candidate.name, reason: skipped.reason })),
+    failed: result.failed.map((failure) => ({ name: failure.candidate.name, error: failure.error })),
+  };
 }
 
 function dbOptions(context: CommandContext): { databasePath?: string; homeDir?: string } {
@@ -615,173 +430,6 @@ function dbOptions(context: CommandContext): { databasePath?: string; homeDir?: 
   };
 }
 
-function getArchiveRoot(context: CommandContext): string {
-  return join(getKundolHomePath(dbOptions(context)), "archives");
-}
-
-function formatAgeDays(ageDays: number): string {
-  return `${Math.floor(ageDays)} day(s)`;
-}
-
-function sortProjects(projects: Project[], sort?: string): Project[] {
-  const sorted = [...projects];
-  if (sort === "size") return sorted.sort((a, b) => b.sizeBytes - a.sizeBytes);
-  if (sort === "modified") return sorted.sort((a, b) => (b.lastIndexedAt ?? "").localeCompare(a.lastIndexedAt ?? ""));
-  if (sort === "cleanable") return sorted.sort((a, b) => b.cleanableBytes - a.cleanableBytes);
-  return sorted.sort((a, b) => a.name.localeCompare(b.name));
-}
-
-function formatProjectTable(projects: Project[]): string {
-  const rows = [
-    ["Name", "Runtime", "Status", "Size", "Cleanable", "Git", "Path"],
-    ...projects.map((project) => [
-      project.name,
-      project.primaryRuntime ?? "unknown",
-      project.status,
-      formatBytes(project.sizeBytes),
-      formatBytes(project.cleanableBytes),
-      project.gitDirty ? "dirty" : "clean",
-      project.path,
-    ]),
-  ];
-  const widths = rows[0]!.map((_, index) => Math.min(32, Math.max(...rows.map((row) => row[index]!.length))));
-  return rows
-    .map((row, rowIndex) => {
-      const line = row.map((cell, index) => fit(cell, widths[index]!)).join("  ");
-      return rowIndex === 0 ? `${line}\n${widths.map((width) => "-".repeat(width)).join("  ")}` : line;
-    })
-    .join("\n");
-}
-
-function writeOptimizePreview(context: CommandContext, preview: OptimizePreview): void {
-  const selected = preview.candidates.filter((candidate) => candidate.safety === "safe" && candidate.defaultSelected);
-  const review = preview.candidates.filter((candidate) => candidate.safety !== "safe");
-  context.output.writeLine("Optimize storage dry run");
-  context.output.writeLine(`Selected safe actions: ${preview.safeSelectedCount}`);
-  context.output.writeLine(`Known reclaimable: ${formatBytes(preview.knownReclaimableBytes)}`);
-  context.output.writeLine(`Needs review: ${preview.reviewCount}`);
-  context.output.writeLine(`Protected: ${preview.protectedCount}`);
-  context.output.writeLine("");
-  context.output.writeLine("Will clean:");
-  writeOptimizeCandidates(context, selected, 30);
-  if (review.length > 0) {
-    context.output.writeLine("");
-    context.output.writeLine("Not included in one-click apply:");
-    writeOptimizeCandidates(context, review, 30);
-  }
-  context.output.writeLine("");
-  context.output.writeLine("Apply selected safe cleanup: kundol optimize --apply --no-dry-run");
-}
-
-function writeOptimizeApplySummary(
-  context: CommandContext,
-  result: OptimizeApplyResult,
-  nextPreview: OptimizePreview,
-): void {
-  const pending = nextPreview.candidates.filter((candidate) => candidate.safety !== "safe");
-  context.output.writeLine("Optimize storage summary");
-  context.output.writeLine(`Applied: ${result.applied.length}`);
-  context.output.writeLine(`Failed: ${result.failed.length}`);
-  context.output.writeLine(`Skipped: ${result.skipped.length}`);
-  context.output.writeLine(`Known reclaimable applied: ${formatBytes(sum(result.applied.map((candidate) => candidate.sizeBytes ?? 0)))}`);
-  context.output.writeLine("");
-  context.output.writeLine("Cleaned this run:");
-  writeOptimizeCandidates(context, result.applied, 50);
-  if (result.failed.length > 0) {
-    context.output.writeLine("");
-    context.output.writeLine("Failed:");
-    for (const failure of result.failed) {
-      context.output.writeLine(`  ${failure.candidate.label}: ${failure.error}`);
-    }
-  }
-  if (result.skipped.length > 0) {
-    context.output.writeLine("");
-    context.output.writeLine("Skipped:");
-    writeOptimizeCandidates(context, result.skipped, 50);
-  }
-  if (pending.length > 0) {
-    context.output.writeLine("");
-    context.output.writeLine("Still pending review/protected:");
-    writeOptimizeCandidates(context, pending, 50);
-  }
-}
-
-function writeOptimizeCandidates(context: CommandContext, candidates: OptimizeCandidate[], limit: number): void {
-  if (candidates.length === 0) {
-    context.output.writeLine("  none");
-    return;
-  }
-  for (const candidate of candidates.slice(0, limit)) {
-    const size = candidate.sizeBytes === null ? "unknown" : formatBytes(candidate.sizeBytes);
-    context.output.writeLine(`  [${candidate.safety}] ${candidate.label}  ${size}  ${candidate.command}`);
-  }
-  if (candidates.length > limit) {
-    context.output.writeLine(`  ... ${candidates.length - limit} more`);
-  }
-}
-
-function fit(value: string, width: number): string {
-  if (value.length <= width) return value.padEnd(width);
-  if (width <= 1) return value.slice(0, width);
-  return `${value.slice(0, width - 1)}~`;
-}
-
-function countBy<T>(items: T[], key: (item: T) => string): Record<string, number> {
-  const counts: Record<string, number> = {};
-  for (const item of items) {
-    const value = key(item);
-    counts[value] = (counts[value] ?? 0) + 1;
-  }
-  return counts;
-}
-
-function sum(values: number[]): number {
-  return values.reduce((total, value) => total + value, 0);
-}
-
-function formatBytes(bytes: number): string {
-  const units = ["B", "KB", "MB", "GB", "TB"];
-  let value = bytes;
-  let unitIndex = 0;
-  while (value >= 1024 && unitIndex < units.length - 1) {
-    value /= 1024;
-    unitIndex += 1;
-  }
-  return `${unitIndex === 0 ? value.toFixed(0) : value.toFixed(1)} ${units[unitIndex]}`;
-}
-
 function writeJson(context: CommandContext, value: unknown): void {
   context.output.writeLine(JSON.stringify(value, null, 2));
-}
-
-function toRuntimeFamilies(runtimes: string[]): RuntimeFamily[] {
-  const allowed = new Set(["node", "bun", "deno", "python", "go", "rust", "java", "dotnet", "unity", "unknown"]);
-  return runtimes.map((runtime) => (allowed.has(runtime) ? runtime : "unknown")) as RuntimeFamily[];
-}
-
-function readOpenTuiDemoMs(): number | undefined {
-  const raw = process.env.KUNDOL_OPENTUI_DEMO_MS ?? process.env.KUNDOL_OPENTUI_DEMO;
-  if (!raw) return undefined;
-  if (raw === "1") return 1200;
-  const parsed = Number(raw);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : 1200;
-}
-
-function formatError(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
-async function detectTool(name: string, args: string[]): Promise<{ name: string; available: boolean; version: string | null }> {
-  try {
-    const proc = Bun.spawn([name, ...args], { stdout: "pipe", stderr: "pipe" });
-    const [stdout, stderr, exitCode] = await Promise.all([
-      new Response(proc.stdout).text(),
-      new Response(proc.stderr).text(),
-      proc.exited,
-    ]);
-    const output = `${stdout}${stderr}`.trim().split("\n")[0] ?? "";
-    return { name, available: exitCode === 0, version: exitCode === 0 ? output : null };
-  } catch {
-    return { name, available: false, version: null };
-  }
 }

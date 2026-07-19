@@ -38,7 +38,7 @@ describe("recommendation engine", () => {
     });
 
     expect(recommendations.map((item) => item.kind)).toEqual(["clean-preview", "review-caution", "archive-later"]);
-    expect(recommendations[0]?.command).toBe("kundol clean voice-ai");
+    expect(recommendations[0]?.command).toBe("kundol optimise projects <workdir>");
   });
 
   test("emits a calm no-op recommendation when nothing is cleanable", () => {

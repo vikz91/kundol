@@ -8,7 +8,6 @@ import {
   listProjects,
   showProject,
   toRegistryProjectRow,
-  toTuiProjectSummary,
   type ProjectListSource,
   type RegistryTagResolver,
 } from "../../../src/core/registry";
@@ -117,7 +116,7 @@ describe("registry project queries", () => {
     expect(result.warnings.at(0)?.code).toBe("AMBIGUOUS_PROJECT_MATCH");
   });
 
-  test("builds dashboard aggregates and top space consumers", () => {
+  test("builds registry aggregates and top space consumers", () => {
     const summary = getDashboardSummary(source, { topLimit: 2 });
 
     expect(summary.totalProjects).toBe(3);
@@ -139,22 +138,14 @@ describe("registry formatting helpers", () => {
     expect(toRegistryProjectRow(projects[0]!).git).toBe("dirty");
   });
 
-  test("maps projects to TUI summary data", () => {
-    const summary = toTuiProjectSummary(projects[1]!);
-
-    expect(summary.runtime).toBe("go");
-    expect(summary.status).toBe("STALE");
-    expect(summary.cleanable).toBe("30 MB");
-  });
-
-  test("formats list and dashboard text", () => {
+  test("formats list and summary text", () => {
     const list = formatProjectListTable(listProjects(source, { status: "ACTIVE" }));
-    const dashboard = formatDashboardSummary(getDashboardSummary(source, { topLimit: 1 }));
+    const summary = formatDashboardSummary(getDashboardSummary(source, { topLimit: 1 }));
 
     expect(list).toContain("api-server");
     expect(list).toContain("/tmp/work/api-server");
-    expect(dashboard).toContain("Projects: 3 projects");
-    expect(dashboard).toContain("tools-cli: 80 MB");
+    expect(summary).toContain("Projects: 3 projects");
+    expect(summary).toContain("tools-cli: 80 MB");
   });
 });
 

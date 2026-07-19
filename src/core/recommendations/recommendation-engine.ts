@@ -21,8 +21,8 @@ export function generateRecommendations(input: RecommendationInput): Recommendat
     recommendations.push({
       kind: "clean-preview",
       priority: "high",
-      message: `Run \`kundol clean ${target}\` to preview safe generated-file cleanup.`,
-      command: `kundol clean ${target}`,
+      message: `Run \`kundol optimise projects <workdir>\` to scan, confirm, and clean safe generated files for ${target}.`,
+      command: "kundol optimise projects <workdir>",
       itemPaths: input.items.filter((item) => item.classification === "safe").map((item) => item.path),
     });
   }

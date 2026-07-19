@@ -1,7 +1,7 @@
 # kundol Project Plan
 
 Created: 2026-06-13 07:18:52 IST  
-Last updated: 2026-06-16 03:06:06 IST  
+Last updated: 2026-06-16 15:39:39 IST  
 Project codename: kundol  
 Product concept name from source context: DevShelf  
 
@@ -20,8 +20,17 @@ Use datetime format: `YYYY-MM-DD HH:mm:ss IST`.
 
 ## Product Direction
 
-kundol is a Bun.js CLI/TUI app with non-AI workers that index workspace folders and identify user-created projects: servers, web apps, libraries, CLIs, experiments, mixed-runtime repos, and other developer-created codebases.
-It stores project metadata in SQLite, analyzes disk usage and runtime/toolchain signals, recommends safe cleanup, audits local runtimes, and supports dry-run-first cleanup workflows.
+kundol is a Bun.js CLI-only app with non-AI workers that scan developer workspaces and identify user-created projects: servers, web apps, libraries, CLIs, experiments, mixed-runtime repos, and other developer-created codebases.
+It stores project metadata in SQLite, analyzes disk usage and runtime/toolchain signals, recommends safe cleanup, executes conservative confirmed cleanup, and writes audit records.
+
+The current product direction is a radical CLI-only simplification:
+
+- Remove the dashboard/TUI as a product surface.
+- Collapse cleanup workflows under British-spelled `optimise` command groups.
+- Use `kundol optimise storage`, `kundol optimise projects <workdir>`, and `kundol optimise repos <workdir>` as the primary cleanup commands.
+- Do not expose `--dry-run`, `--apply`, or `--no-dry-run` flags.
+- Every optimise run scans first, prints a cleanup plan, asks for confirmation unless forced, executes only safe cleanup, prints a final report, and audits the run.
+- Support only `-f, --force` to skip the confirmation prompt after the scan/plan step.
 
 Current runtime analysis scope: JavaScript/TypeScript, Java, .NET, Python, Rust, and Go.
 Future runtime roadmap: iOS and Android.
@@ -34,10 +43,10 @@ The pasted context originally named the product `DevShelf`; the MVP now uses `ku
 1. Establish project foundation and decisions.
 2. Implement SQLite-backed registry.
 3. Implement workspace configuration and non-AI worker-driven workspace indexing.
-4. Implement dashboard/list/show commands and list search filters.
-5. Implement cleanup analysis and recommendations.
+4. Implement CLI-only project discovery and inspection commands.
+5. Implement cleanup analysis, plans, confirmations, final reports, and audit records.
 6. Implement runtime audit.
-7. Implement safe dry-run-first cleanup workflow.
+7. Implement confirmed safe cleanup workflows through `kundol optimise ...`.
 8. Add tests, documentation, and release packaging.
 
 ## Task Ledger
@@ -116,10 +125,13 @@ The pasted context originally named the product `DevShelf`; the MVP now uses `ku
 | KUN-070 | Registry/Cleanup UX | Search only scanned projects and clarify cleanup apply flow. | don | Codex | 2026-06-15 17:21:03 IST | 2026-06-15 17:21:03 IST | 2026-06-15 17:23:34 IST | KUN-020, KUN-042 | Added `list --scanned` so users can run `kundol list --scanned --search <query>`, dry-run previews now print the exact `clean --apply --no-dry-run` follow-up, and command handlers return async results for reliable scripting/tests. |
 | KUN-071 | TUI/CLI Parity | Make project search/filter/sort discoverable in both CLI and dashboard. | don | Codex | 2026-06-15 17:26:14 IST | 2026-06-15 17:26:14 IST | 2026-06-15 17:26:14 IST | KUN-070 | Added typed dashboard search, scanned-only toggle, sort cycling, clear filters, and CLI-equivalent hints for list/search, show, scan, clean preview/apply, runtimes, config, and JSON/server workflows. |
 | KUN-072 | Branding | Add selected app logo to README and brand docs. | don | Codex | 2026-06-15 21:37:29 IST | 2026-06-15 21:37:29 IST | 2026-06-15 21:37:29 IST | KUN-055, KUN-056 | Copied the selected rounded-square `K` logo to `assets/logo.png`, embedded it in README/docs, and added `docs/brand.md` with palette and usage notes. |
-| KUN-073 | Audit | Add per-run timestamped session audit log. | in progress | Codex | 2026-06-15 21:39:50 IST | 2026-06-15 21:39:50 IST |  | KUN-007, KUN-065 | Create an append-only session log for CLI/TUI actions formatted as timestamp, device name, action, and project name when available. |
+| KUN-073 | Audit | Add per-run timestamped session audit log. | don | Codex | 2026-06-15 21:39:50 IST | 2026-06-15 21:39:50 IST | 2026-06-16 05:34:10 IST | KUN-007, KUN-065 | Append-only session logs are written under `$HOME/.kundol/sessions`; CLI optimise workflows also record durable SQLite action rows. |
 | KUN-074 | TUI/Optimize | Add dashboard optimize storage dry-run and apply confirmation. | don | Codex | 2026-06-15 23:30:51 IST | 2026-06-15 23:30:51 IST | 2026-06-15 23:30:51 IST | KUN-065, KUN-F013 | Added `u optimize` dashboard dry-run preview, grouped safe/review/protected details, `y` apply confirmation for selected safe cleanup, optimizer service, tests, and docs/hints. |
 | KUN-075 | TUI | Add animated ASCII labrador progress pet for long-running dashboard work. | don | Codex | 2026-06-16 03:02:06 IST | 2026-06-16 03:02:06 IST | 2026-06-16 03:02:06 IST | KUN-065, KUN-066, KUN-074 | Added a fixed dashboard activity pet for index, scan, cleanup preview, and optimize work states; frame generation is pure/tested and renderer-only. Hidden dashboard-only `command+q` / `ctrl+q` shows a six-second pet demo. Cursor following is deferred until mouse/cursor events are enabled. |
 | KUN-076 | Process | Optimize agent guide for Codex-driven coding and named specialist subagents. | don | Codex + subagents | 2026-06-16 03:06:06 IST | 2026-06-16 03:06:06 IST | 2026-06-16 03:06:06 IST | none | Refreshed `AGENTS.md` with a Codex operating loop, current implemented surfaces, named Indian specialist roster, subagent collaboration rules, stronger CLI/TUI parity, safety, test isolation, and learning-capture guidance. |
+| KUN-077 | Planning/Testing | Align planning docs and high-level CLI tests with the CLI-only `optimise` command shift. | don | Devika/Neha-style Codex worker | 2026-06-16 05:24:08 IST | 2026-06-16 05:24:08 IST | 2026-06-16 05:24:08 IST | KUN-076 | Updated planning and command docs for CLI-only `kundol optimise storage/projects/repos`, marked TUI docs deprecated, recorded the no dry-run/apply/no-dry-run flag decision, and adjusted only the top-level CLI command-surface test. |
+| KUN-078 | CLI/Optimize | Remove dashboard/TUI surfaces and implement CLI-only optimise workflows. | don | Codex + subagents | 2026-06-16 05:24:08 IST | 2026-06-16 05:24:08 IST | 2026-06-16 05:34:10 IST | KUN-077, KUN-F013 | Removed OpenTUI/Ink code, TUI tests, legacy command modules, and TUI dependencies; added `kundol optimise storage/projects/repos` with scan-plan-confirm-clean-report flow, `-f` as the only option, project-local optimizer service, storage temp/cache cleanup, final reports, and audit records. |
+| KUN-079 | CLI/Startup | Add `kundol optimise startup` for safe startup item disable flow. | don | Codex | 2026-06-16 15:39:39 IST | 2026-06-16 15:39:39 IST | 2026-06-16 15:39:39 IST | KUN-078 | Added macOS-first startup scanner for user LaunchAgents, system LaunchAgents/LaunchDaemons, and app Login Items; `-f` disables only safe user LaunchAgents while system/app/Apple items stay review/protected. |
 
 ## Future Backlog
 
@@ -133,16 +145,18 @@ The pasted context originally named the product `DevShelf`; the MVP now uses `ku
 | KUN-F006 | Ecosystems | Expand runtime-specific cleanup and audit depth beyond MVP coverage. | todo |  | 2026-06-13 07:18:52 IST |  |  | Track deeper ecosystem support in `docs/project-runtimes.md`, including framework-specific generated files. |
 | KUN-F007 | Docker | Implement Docker availability detection and structured resource scanning. | todo |  | 2026-06-13 07:29:15 IST |  |  | Track images, containers, volumes, networks, build cache, and Compose labels using `docs/docker.md`. |
 | KUN-F008 | Docker | Implement Docker analysis and recommendations. | todo |  | 2026-06-13 07:29:15 IST |  |  | Classify resources as safe, caution, or protected; estimate reclaimable bytes. |
-| KUN-F009 | Docker | Implement Docker TUI/CLI views for resource list, disk usage, and recommendations. | todo |  | 2026-06-13 07:29:15 IST |  |  | Include resource grouping by type and Compose project where possible. |
+| KUN-F009 | Docker | Implement Docker CLI views for resource list, disk usage, and recommendations. | todo |  | 2026-06-13 07:29:15 IST |  |  | Include resource grouping by type and Compose project where possible. |
 | KUN-F010 | Docker | Implement Docker purge workflows with dry-run, explicit confirmation, and audit logging. | todo |  | 2026-06-13 07:29:15 IST |  |  | Never purge volumes by default; prefer targeted deletion over broad prune commands. |
 | KUN-F011 | Mobile | Add iOS project detection and analysis rules. | todo |  | 2026-06-13 08:34:13 IST |  |  | Future roadmap; likely markers include Xcode projects/workspaces, Swift packages, CocoaPods, and derived data rules. |
 | KUN-F012 | Mobile | Add Android project detection and analysis rules. | todo |  | 2026-06-13 08:34:13 IST |  |  | Future roadmap; likely markers include Gradle Android plugins, Android manifests, and generated build/cache rules. |
-| KUN-F013 | Storage Optimizer | Implement one-click optimize storage preview/apply workflow. | todo |  | 2026-06-15 21:51:27 IST |  |  | See `docs/storage-optimizer.md`; default apply should be limited to safe project generated files, package-manager cache commands, and targeted Docker cleanup. |
+| KUN-F013 | Storage Optimizer | Implement one-click optimize storage preview/apply workflow. | don | Codex + Meera/Kabir worker | 2026-06-15 21:51:27 IST | 2026-06-16 05:24:06 IST | 2026-06-16 05:34:10 IST | Implemented through CLI-only `kundol optimise storage` and `kundol optimise projects <workdir>` flow: scans first, confirms unless forced, cleans safe package/Docker/temp/project generated targets, reports results, and audits. |
 
 ## Safety Requirements
 
-- Every destructive action must support `--dry-run`.
-- `clean` defaults to dry-run behavior; execution requires explicit `--apply --no-dry-run`.
+- Every destructive optimise command must scan first and print the exact cleanup plan before execution.
+- By default, optimise commands must ask for confirmation after printing the plan.
+- `-f, --force` may skip the confirmation prompt, but it must not skip scanning, planning, safety classification, final reporting, or audit logging.
+- Do not expose `--dry-run`, `--apply`, or `--no-dry-run` in the target CLI-only product.
 - Never automatically remove `.git`, `.env`, `.env.*`, database files, uploads, media, assets, or migrations.
 - Require explicit confirmation for Docker resources, SQLite databases, generated reports, video assets, and source deletion.
 - Docker volume purge must require a dedicated volume-specific confirmation.
