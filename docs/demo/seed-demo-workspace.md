@@ -1,7 +1,7 @@
 # Demo Workspace Seeder
 
 Created: 2026-06-15 00:00:00 IST  
-Last updated: 2026-06-15 00:00:00 IST  
+Last updated: 2026-09-15 11:29:12 IST
 
 Use this script to create a fake workspace for manual kundol CLI testing.
 
@@ -14,12 +14,8 @@ bun run scripts/seed-demo-workspace.ts /tmp/kundol-demo-workspace
 Then test kundol commands:
 
 ```bash
-kundol init --workspace /tmp/kundol-demo-workspace
-kundol index
-kundol dashboard
-kundol list
-kundol scan node-api-orders
-kundol clean node-api-orders
+kundol optimise projects /tmp/kundol-demo-workspace
+kundol optimise repos /tmp/kundol-demo-workspace
 ```
 
 ## What It Creates
@@ -48,3 +44,5 @@ Generated artifact examples:
 
 This is test data only.
 The generated dependency/build artifacts are fake binary files, not real installed dependencies.
+
+For a disposable container with additional fake Docker and startup fixtures, see [`docker-sandbox.md`](docker-sandbox.md).

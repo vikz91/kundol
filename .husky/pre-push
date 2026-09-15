@@ -1,0 +1,3 @@
+set -e
+
+bun run smoke:cli

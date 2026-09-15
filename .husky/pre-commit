@@ -1,0 +1,7 @@
+set -e
+
+bun run check:tools
+bun run lint
+bun run typecheck
+bun run build:check
+bun run scripts/bump-version.ts

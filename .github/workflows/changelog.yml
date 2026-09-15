@@ -1,0 +1,63 @@
+name: Update changelog
+
+on:
+  pull_request_target:
+    types: [closed]
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    concurrency:
+      group: update-changelog-main
+      queue: max
+      cancel-in-progress: false
+    steps:
+      # Use reviewed code on main, never the PR head in this write-token job.
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@v2
+      - name: Prepare notes for the merged PR
+        env:
+          RELEASE_METADATA_DIR: ${{ runner.temp }}/kundol-release
+        run: bun run scripts/update-changelog.ts
+      - name: Commit cumulative changelog
+        env:
+          RELEASE_METADATA_DIR: ${{ runner.temp }}/kundol-release
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          for attempt in 1 2 3; do
+            git add docs/CHANGELOG.md
+            if git diff --cached --quiet; then
+              echo "PR already recorded in changelog"
+              exit 0
+            fi
+            git commit -m "docs: update changelog after merged PR"
+            if git push origin HEAD:main; then
+              exit 0
+            fi
+            git fetch origin main
+            base=$(git rev-parse HEAD^)
+            remote=$(git rev-parse origin/main)
+            if [ "$base" = "$remote" ]; then
+              echo "Changelog push was rejected without a competing main update"
+              exit 1
+            fi
+            git reset --hard origin/main
+            bun run scripts/update-changelog.ts
+          done
+          echo "Changelog push failed after three attempts"
+          exit 1
+      - name: Upload exact release notes and source commit
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-metadata
+          path: ${{ runner.temp }}/kundol-release/release-metadata.json
+          if-no-files-found: error

@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+set -euo pipefail
+cd /opt/kundol
+exec bun /opt/kundol/scripts/docker-kundol.ts "$@"

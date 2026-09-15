@@ -1,6 +1,6 @@
 {
   "name": "kundol",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "A Bun + TypeScript CLI for optimising developer storage and project build artifacts.",
   "type": "module",
   "private": true,
@@ -10,16 +10,26 @@
   "scripts": {
     "dev": "bun run src/cli/index.ts",
     "test": "bun test",
+    "check:tools": "bun run scripts/check-tool-versions.ts",
+    "lint": "eslint src tests scripts eslint.config.mjs --max-warnings 0",
     "typecheck": "tsc --noEmit",
-    "check": "bun run typecheck && bun test"
+    "build:check": "bun build src/cli/index.ts --target=bun --outfile /dev/null",
+    "smoke:cli": "bun run scripts/smoke-cli.ts",
+    "registry:check": "bun run scripts/validate-optimisation-registry.ts",
+    "check": "bun run check:tools && bun run lint && bun run typecheck && bun run registry:check && bun test && bun run build:check && bun run smoke:cli",
+    "prepare": "husky"
   },
   "dependencies": {
     "commander": "^14.0.2",
     "zod": "^4.2.1"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/bun": "^1.3.5",
-    "typescript": "^5.9.3"
+    "eslint": "^10.10.0",
+    "husky": "^9.1.7",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.70.0"
   },
   "engines": {
     "bun": ">=1.2.0"

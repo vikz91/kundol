@@ -1,12 +1,12 @@
 # Project Runtimes Knowledge Base
 
 Created: 2026-06-13 07:25:45 IST  
-Last updated: 2026-06-13 08:34:13 IST  
-Related tasks: `KUN-010`, `KUN-012`, `KUN-025`, `KUN-026`, `KUN-027`, `KUN-028`, `KUN-030`, `KUN-031`, `KUN-033`, `KUN-036`, `KUN-F006`
+Last updated: 2026-09-15 11:20:56 IST
+Related tasks: `KUN-010`, `KUN-012`, `KUN-025`, `KUN-026`, `KUN-027`, `KUN-028`, `KUN-030`, `KUN-031`, `KUN-033`, `KUN-036`, `KUN-F006`, `KUN-083`
 
 ## Purpose
 
-This document is the source of truth for current and future project runtimes, project markers, generated files, cleanup candidates, caution files, protected files, and workflow notes.
+This document records project runtime workflows, markers, generated files, caution files, and protected files. The versioned proposed optimisation definitions are in [`optimisations.json`](../registry/optimisations.json); current CLI behavior is mapped in [`context.md`](context.md).
 
 Agents must update this file whenever kundol learns a new ecosystem rule.
 Use this KB to drive project type inference, cleanup analysis, recommendations, runtime audit, docs, and tests.
@@ -260,13 +260,15 @@ Cleanup workflow:
 
 ## Knowledge Maintenance Workflow
 
+The proposed registry uses project markers for generated-path rules and repeat checks for scope containment, symlinks, markers, and activity at apply. SwiftPM `.build`, Android `build`, Java `target`/`build`, and other duplicated research targets each have one canonical registry rule. This catalogue is not wired into the public CLI yet; compare every future registry adapter against these runtime workflow notes and current safety policy.
+
 When an agent adds support for a runtime:
 
 1. Update this file with markers, cleanup candidates, caution candidates, protected files, runtime audit commands, and tests needed.
 2. Update `docs/README.md` if a new runtime-specific doc is created.
-3. Update `agents.md` only if the document index changes.
-4. Update `plan.md` task notes or add tasks if implementation work is needed.
-5. Add chronological context to `learnings.md`.
+3. Update `docs/agents.md` only if the document index changes.
+4. Update `docs/plan.md` task notes or add tasks if implementation work is needed.
+5. Add chronological context to `docs/learnings.md`.
 
 When implementation disagrees with this document, update the document or implementation in the same task.
 Do not let runtime rules drift.

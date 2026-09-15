@@ -1,0 +1,116 @@
+name: Release macOS executable
+
+on:
+  workflow_run:
+    workflows: [Update changelog]
+    types: [completed]
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: release-publish
+  queue: max
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.event.workflow_run.conclusion == 'success'
+    runs-on: macos-latest
+    steps:
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Check for changelog metadata
+        id: artifact
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          COUNT="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${{ github.event.workflow_run.id }}/artifacts?name=release-metadata" \
+            --jq '[.artifacts[] | select(.name == "release-metadata" and .expired == false)] | length')"
+          if [ "$COUNT" -eq 0 ]; then
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "No release metadata was produced; the PR was not merged."
+          else
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Download and validate changelog metadata
+        if: steps.artifact.outputs.available == 'true'
+        id: metadata
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh run download "${{ github.event.workflow_run.id }}" -n release-metadata -D "$RUNNER_TEMP/kundol-release"
+          bun -e '
+            import { appendFileSync, writeFileSync } from "node:fs";
+            const data = JSON.parse(await Bun.file(process.argv[1]).text());
+            if (typeof data.version !== "string" || !/^\d+\.\d+\.\d+$/.test(data.version)) throw new Error("Invalid release version");
+            if (typeof data.mergeSha !== "string" || !/^[a-f0-9]{40}$/i.test(data.mergeSha)) throw new Error("Invalid merged commit SHA");
+            if (typeof data.releaseNotes !== "string" || !data.releaseNotes.trim()) throw new Error("Release notes are empty");
+            appendFileSync(process.env.GITHUB_OUTPUT, `version=${data.version}\nmergeSha=${data.mergeSha}\n`);
+            writeFileSync(`${process.env.RUNNER_TEMP}/kundol-release/release-notes.md`, data.releaseNotes);
+          ' "$RUNNER_TEMP/kundol-release/release-metadata.json"
+
+      - name: Check out the merged source commit
+        if: steps.artifact.outputs.available == 'true'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ steps.metadata.outputs.mergeSha }}
+
+      - name: Validate source and check for an existing release
+        if: steps.artifact.outputs.available == 'true'
+        id: existing
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_VERSION: ${{ steps.metadata.outputs.version }}
+          MERGE_SHA: ${{ steps.metadata.outputs.mergeSha }}
+        run: |
+          git fetch origin main
+          git merge-base --is-ancestor "$MERGE_SHA" origin/main
+          SOURCE_VERSION="$(bun -e 'console.log(JSON.parse(await Bun.file("package.json").text()).version)')"
+          test "$SOURCE_VERSION" = "$RELEASE_VERSION"
+          if gh release view "v$RELEASE_VERSION" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "Release v$RELEASE_VERSION already exists; its tag, executable, and notes remain unchanged."
+            echo "Bump the package version to publish a new executable for this merged PR."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install dependencies
+        if: steps.existing.outputs.exists == 'false'
+        run: bun install --frozen-lockfile
+
+      - name: Verify release source
+        if: steps.existing.outputs.exists == 'false'
+        run: bun run check
+
+      - name: Build single universal executable
+        if: steps.existing.outputs.exists == 'false'
+        run: bun run scripts/build-release.ts --outfile "$RUNNER_TEMP/kundol-release/kundol-macos-universal"
+
+      - name: Tag source and publish GitHub Release
+        if: steps.existing.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_VERSION: ${{ steps.metadata.outputs.version }}
+          MERGE_SHA: ${{ steps.metadata.outputs.mergeSha }}
+        run: |
+          TAG="v$RELEASE_VERSION"
+          git fetch --tags origin
+          if git rev-parse "refs/tags/$TAG" >/dev/null 2>&1; then
+            TAG_SHA="$(git rev-list -n 1 "$TAG")"
+            test "$TAG_SHA" = "$MERGE_SHA"
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git tag -a "$TAG" -m "kundol $TAG" "$MERGE_SHA"
+            git push origin "$TAG"
+          fi
+          gh release create "$TAG" "$RUNNER_TEMP/kundol-release/kundol-macos-universal" \
+            --verify-tag \
+            --target "$MERGE_SHA" \
+            --title "kundol $TAG" \
+            --notes-file "$RUNNER_TEMP/kundol-release/release-notes.md"

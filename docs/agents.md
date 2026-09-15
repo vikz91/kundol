@@ -1,39 +1,43 @@
 # kundol Agent Guide
 
 Created: 2026-06-13 07:21:12 IST  
-Last updated: 2026-06-16 03:06:06 IST  
-Project type: Bun + TypeScript terminal UI application  
+Last updated: 2026-09-15 11:39:56 IST
+Project type: Bun + TypeScript macOS-first CLI application
 
 ## Purpose
 
 This file is the operating guide for agents working on kundol.
-Use it together with `plan.md`, `learnings.md`, and the knowledge base under `docs/`.
+Use it together with [`plan.md`](plan.md), [`learnings.md`](learnings.md), and the other pages in this directory.
 
-kundol is a Bun.js CLI/TUI project discovery and lifecycle tool. It should feel fast, safe, trustworthy, and pleasant inside a terminal.
+kundol is a Bun.js CLI for macOS-first storage, startup, and developer-project optimisation. Its former TUI and project-discovery commands were removed from the public CLI. Read [`context.md`](context.md) for the current code map and the documented gaps between earlier safety guidance and implemented behavior.
 
 ## Project Documents Index
 
 - [`plan.md`](plan.md) - task ledger, statuses, dependencies, milestones, and open decisions
 - [`learnings.md`](learnings.md) - chronological discoveries and implementation notes from agents
-- [`docs/README.md`](docs/README.md) - knowledge-base index for all durable docs
-- [`docs/architecture.md`](docs/architecture.md) - scalable and maintainable Bun + TypeScript TUI architecture
-- [`docs/brand.md`](docs/brand.md) - logo asset, color palette, and brand usage notes
-- [`docs/commands.md`](docs/commands.md) - current command surface and later command groups
-- [`docs/commands/default-tui.md`](docs/commands/default-tui.md) - default `kundol` TUI behavior
-- [`docs/commands/init.md`](docs/commands/init.md) - `kundol init` command spec
-- [`docs/commands/index.md`](docs/commands/index.md) - `kundol index` command spec
-- [`docs/demo/seed-demo-workspace.md`](docs/demo/seed-demo-workspace.md) - demo workspace generator for manual CLI/TUI testing
-- [`docs/dependencies.md`](docs/dependencies.md) - Bun/npm dependencies, optional packages, and system tools
-- [`docs/docker.md`](docs/docker.md) - Docker monitoring, analysis, purge workflows, and safety rules
-- [`docs/launch.md`](docs/launch.md) - open-source launch supply chain and community plan
-- [`docs/product-goal.md`](docs/product-goal.md) - main goal, product shape, worker model, runtime scope, and future roadmap
-- [`docs/project-runtimes.md`](docs/project-runtimes.md) - supported project runtimes, markers, cleanup candidates, and runtime workflows
-- [`docs/storage-config.md`](docs/storage-config.md) - user-scoped database, workspace config, and ignore pattern decisions
-- [`docs/storage-optimizer.md`](docs/storage-optimizer.md) - one-click optimize storage safety tiers and cleanup candidate list
-- [`docs/tui.md`](docs/tui.md) - OpenTUI dashboard layout, keyboard model, and CLI parity notes
-- [`docs/user-flow.md`](docs/user-flow.md) - install, init, first index, dashboard, review, project scan, cleanup, and daemon flow
-- [`docs/viral-launch.md`](docs/viral-launch.md) - low-cost viral OSS launch pattern research
-- [`docs/workflows/implementation-wave-001.md`](docs/workflows/implementation-wave-001.md) - first multi-agent implementation wave notes
+- [`README.md`](README.md) - knowledge-base index for all durable docs
+- [`CONTRIBUTING.md`](CONTRIBUTING.md) - contributor setup, safety, and pull request guidance
+- [`AUTHOR.md`](AUTHOR.md) - original author credit
+- [`CHANGELOG.md`](CHANGELOG.md) - merged pull requests grouped by version
+- [`release.md`](release.md) - version bump, merged-PR workflows, and executable release guidance
+- [`architecture.md`](architecture.md) - historical architecture guidance; current module map is in `context.md`
+- [`brand.md`](brand.md) - logo asset, color palette, and brand usage notes
+- [`commands.md`](commands.md) - current CLI-only command surface
+- [`context.md`](context.md) - implementation-grounded codebase, command, macOS scope, persistence, and safety context
+- [`developer-cleanup-targets.md`](developer-cleanup-targets.md) - sourced, proposed macOS developer cleanup categories, targets, and safety strategies
+- [`optimisation-registry.md`](optimisation-registry.md) - versioned JSON catalogue, validation, and contribution rules
+- [`demo/seed-demo-workspace.md`](demo/seed-demo-workspace.md) - fake Node, Python, and Go workspace generator for project optimiser testing
+- [`demo/docker-sandbox.md`](demo/docker-sandbox.md) - disposable first-time Docker testing with fake project, storage, Docker, and startup fixtures
+- [`dependencies.md`](dependencies.md) - Bun/npm dependencies, optional packages, and system tools
+- [`docker.md`](docker.md) - planned Docker inventory and targeted cleanup design; current implementation is described in `context.md`
+- [`launch.md`](launch.md) - open-source launch supply chain and community plan
+- [`product-goal.md`](product-goal.md) - main goal, product shape, worker model, runtime scope, and future roadmap
+- [`project-runtimes.md`](project-runtimes.md) - supported project runtimes, markers, cleanup candidates, and runtime workflows
+- [`storage-config.md`](storage-config.md) - user-scoped database, workspace config, and ignore pattern decisions
+- [`storage-optimizer.md`](storage-optimizer.md) - historical storage optimiser design, with several targets differing from current code
+- [`user-flow.md`](user-flow.md) - historical first-run and dashboard flow
+- [`viral-launch.md`](viral-launch.md) - low-cost viral OSS launch pattern research
+- [`workflows/implementation-wave-001.md`](workflows/implementation-wave-001.md) - first multi-agent implementation wave notes
 
 Agents should treat this section as the starting index.
 When a new durable doc is added under `docs/`, add it here and to `docs/README.md`.
@@ -45,56 +49,54 @@ The main agent owns integration quality and should keep the critical path local 
 
 Default loop for every coding task:
 
-1. Read `AGENTS.md`, then inspect the touched area with `rg`, `sed`, and tests before editing.
+1. Read `docs/agents.md`, then inspect the touched area with `rg`, `sed`, and tests before editing.
 2. Decide whether subagents help. Use them for parallel exploration, focused implementation slices with disjoint files, or verification.
 3. State the intended edit before modifying files.
-4. Keep CLI, TUI, docs, and tests in parity when a feature changes user behavior.
+4. Keep CLI, docs, and tests in parity when a feature changes user behavior.
 5. Run `bun run check` unless the change is documentation-only. For doc-only changes, run targeted checks such as link/path inspection when useful.
-6. Update `learnings.md` for any mistake, gotcha, product decision, or reusable implementation rule.
+6. Update `docs/learnings.md` for any mistake, gotcha, product decision, or reusable implementation rule.
 7. Leave the worktree understandable: no hidden generated files, no unrelated refactors, no reverted user work.
 
 Codex-specific rules:
 
 - Use `apply_patch` for hand edits.
 - Use `rg` before broad file reads.
-- Use `multi_tool_use.parallel` for independent reads.
+- Batch independent reads and inspect each result.
 - Do not run destructive cleanup commands against the user's real home or projects during tests.
 - Prefer temp homes, temp workspaces, injected clocks, and injected DB paths in tests.
-- When a command works in the dashboard, make sure the equivalent CLI/server-friendly path exists, and vice versa.
-- If a feature has `--json`, keep JSON result shape and exit code behavior consistent with text output.
-- If an async TUI action can partially fail, preserve and display its result instead of returning to an ambiguous idle screen.
+- Keep output and exit code behavior consistent across interactive and non-interactive CLI runs.
 - If a spawned subagent edits code, assign a disjoint write scope and tell it not to revert other work.
 
 ## Current Implemented Surfaces
 
-As of 2026-06-16, the implemented app is broader than the original MVP plan.
+As of 2026-09-15, the implemented public app is CLI-only.
 Agents must account for these surfaces when changing behavior:
 
-- `kundol` opens the OpenTUI dashboard in an interactive TTY and falls back to a text dashboard in non-TTY contexts.
-- CLI commands: `init`, `index`, `dashboard`, `list`, `show`, `scan`, `clean`, `optimize`/`optimise`, `runtimes`, and `config`.
-- Dashboard actions include search, scanned-only filter, sort cycling, project detail, index, scan, clean dry-run, optimize dry-run/apply, runtimes, config editing, status bar, animations, toasts, and action summaries.
-- `clean` and `optimize` are preview-first and must print the exact explicit apply command.
-- `clean --apply --no-dry-run` can create a `.tar.gz` archive before cleanup when the project is older than `archive.beforeCleanDays`.
-- Session audit logs live under `$HOME/.kundol/sessions`; durable project events also use the SQLite `actions` table.
+- Bare `kundol` prints a welcome banner; the public group is British-spelled `optimise`.
+- CLI subcommands: `optimise storage`, `optimise startup`, `optimise projects <workdir>`, and `optimise repos <workdir>`.
+- Every optimise run scans and prints a plan. Storage/projects/repos ask `[y/N]`; startup asks for safe user LaunchAgent numbers. `-f` skips that prompt after planning.
+- `repos` currently calls the same scanner and cleanup handler as `projects`, without Git filtering.
+- Session audit logs live under `$HOME/.kundol/sessions`; SQLite `actions` rows record scans, cancellations, and optimise results.
+- Retained indexing, registry, scan/clean, and archive modules have no public command, though storage apply can use previously persisted scan rows.
 
-Do not revive cancelled MVP scope such as broad compact/archive commands, latest-version network lookup, daemon behavior, or Docker volume purge unless the user asks or `plan.md` gets a new task.
+Do not revive cancelled MVP scope such as broad compact/archive commands, latest-version network lookup, daemon behavior, or Docker volume purge unless the user asks or `docs/plan.md` gets a new task.
 
 ## Required Coordination Loop
 
 Before starting work:
 
-1. Read `plan.md`.
+1. Read `docs/plan.md`.
 2. Read `docs/product-goal.md`.
 3. Pick a task whose dependencies are complete or not blocking.
 4. Update that task status to `in progress`, set `Owner`, and set `Started at`.
-5. Read `learnings.md`, `docs/README.md`, and relevant docs under `docs/`.
+5. Read `docs/learnings.md`, `docs/README.md`, and relevant docs under `docs/`.
 
 Do not start a task already marked `in progress` unless the user explicitly asks you to continue it.
 
 While working:
 
 1. Keep changes scoped to the selected task.
-2. Add discoveries, tradeoffs, and gotchas to `learnings.md`.
+2. Add discoveries, tradeoffs, and gotchas to `docs/learnings.md`.
 3. Add durable implementation notes to `docs/` as knowledge-base pages.
 4. Maintain dependency decisions in `docs/dependencies.md`.
 5. Maintain runtime workflow knowledge in `docs/project-runtimes.md`.
@@ -201,9 +203,9 @@ Role: explorer focused on hidden behavior, missing parity, and failure cases.
 
 Responsibilities:
 
-- Check CLI/TUI parity gaps.
+- Check interactive/non-interactive CLI behavior gaps.
 - Look for async flows that can fail silently.
-- Inspect JSON/text output consistency and exit code behavior.
+- Inspect text output consistency and exit code behavior.
 - Identify stale docs, missing hints, and confusing user flows.
 
 Default output:
@@ -220,7 +222,7 @@ Responsibilities:
 - Add or update Bun tests for every behavior change.
 - Use temp homes, temp workspaces, injected clocks, and injected DB paths.
 - Run `bun run check` before handoff when code changes.
-- Add smoke commands for CLI/TUI parity without touching real user data.
+- Add smoke commands for interactive/non-interactive CLI parity without touching real user data.
 
 Default write scope:
 
@@ -234,20 +236,20 @@ Role: keeps task coordination, mistakes, and durable knowledge coherent.
 
 Responsibilities:
 
-- Own `plan.md` hygiene: status, owner, timestamps, dependencies, notes.
-- Own `learnings.md`: record mistakes, gotchas, and rules that prevent repeat failures.
+- Own `docs/plan.md` hygiene: status, owner, timestamps, dependencies, notes.
+- Own `docs/learnings.md`: record mistakes, gotchas, and rules that prevent repeat failures.
 - Keep `docs/README.md` and the AGENTS document index current.
 - Convert repeated review comments into durable coding practices.
 
 Default write scope:
 
-- `plan.md`
-- `learnings.md`
-- `AGENTS.md`
+- `docs/plan.md`
+- `docs/learnings.md`
+- `docs/agents.md`
 - `docs/README.md`
 - planning and release docs
 
-### Ananya Kapoor - Frontend/TUI Engineer
+### Ananya Kapoor - Frontend/TUI Engineer (future UI)
 
 Role: owns OpenTUI, terminal UX, and future React/web surfaces.
 
@@ -262,7 +264,6 @@ Default write scope:
 
 - `src/tui/**`
 - TUI formatting tests
-- `docs/tui.md`
 - future React/web UI files
 
 ## Subagent Collaboration Rules
@@ -277,7 +278,7 @@ Default write scope:
 
 ## Recommended Architecture
 
-Use the scalable layered architecture in [`docs/architecture.md`](docs/architecture.md).
+Use the current source map in [`context.md`](context.md). [`architecture.md`](architecture.md) records earlier layered architecture guidance, including removed TUI surfaces.
 
 Core rule:
 
@@ -317,6 +318,8 @@ Avoid:
 - Hidden network calls during normal scan/list/dashboard commands.
 
 ## TUI Practices
+
+This section is historical guidance from the removed dashboard. It is not an instruction to add OpenTUI or restore TUI parity to the current CLI.
 
 Recommended approach:
 
@@ -381,16 +384,14 @@ Safe generated-file candidates:
 - `.turbo`
 - `.parcel-cache`
 - `__pycache__`
-- `.venv`
 - `.pytest_cache`
 - `.mypy_cache`
 - `.ruff_cache`
 - `coverage.out`
 
-Every destructive workflow must support `--dry-run`.
-`clean` and `optimize` must default to dry-run and require `--apply --no-dry-run` for changes.
-Storage optimize default apply must stay narrow: inactive indexed project generated files plus trusted tool-owned commands.
-Broad `/tmp`, `~/Library/Caches`, Docker volumes, global caches, reports, media, databases, and app/system folders remain review/protected.
+The public CLI uses scan-plan-confirm (or `-f`) and does not expose `--dry-run`, `--apply`, or `--no-dry-run`.
+Earlier narrow-storage guidance is a policy goal, not a description of current code: storage currently auto-selects all old top-level `os.tmpdir()` entries and broad Docker system prune without volumes. See [`context.md`](context.md) before modifying this workflow.
+Docker volumes remain excluded from storage apply. Reports, media, databases, and app/system folders remain protected from automatic project cleanup. `~/Library/Caches` is review-only in the current storage plan.
 Any cleanup apply path must reclassify or re-check live filesystem paths before deletion and reject path escapes, project roots, missing items, caution items, protected items, and stale unsafe scan rows.
 
 ## Testing Expectations
@@ -416,21 +417,21 @@ Recommended test fixture style:
 
 ## Documentation And Knowledge Base
 
-Use `learnings.md` for chronological discoveries.
+Use `docs/learnings.md` for chronological discoveries.
 Use `docs/` for durable knowledge-base pages.
 
 When adding a KB page:
 
 - Use a short lowercase filename, for example `docs/sqlite.md`.
 - Include the date.
-- Link related tasks from `plan.md`.
+- Link related tasks from `docs/plan.md`.
 - Record the decision, rationale, and consequences.
 
 Recommended docs:
 
 - `docs/architecture.md`
 - `docs/sqlite.md`
-- `docs/tui.md`
+- `docs/context.md`
 - `docs/safety.md`
 - `docs/runtime-audit.md`
 - `docs/release.md`
@@ -440,22 +441,22 @@ Recommended docs:
 Before marking a task `don`, check:
 
 - Does this follow the Bun + TypeScript direction?
-- Is core logic separated from CLI/TUI presentation?
-- Are destructive actions guarded by dry-run and confirmation rules?
+- Is core logic separated from CLI presentation?
+- Do destructive actions follow scan-plan-confirm (or `-f`) and applicable live safety checks?
 - Does it avoid touching real user data in tests?
 - Are errors helpful and recoverable?
-- Did the agent update `learnings.md` for meaningful discoveries?
+- Did the agent update `docs/learnings.md` for meaningful discoveries?
 - Should any durable knowledge move into `docs/`?
-- Is `plan.md` status updated accurately?
+- Is `docs/plan.md` status updated accurately?
 
 ## Current Stack Decision
 
-The project is a Bun + TypeScript TUI project.
+The project is a Bun + TypeScript CLI project.
 
 Default assumptions until changed:
 
 - Runtime/package manager: Bun.
 - Language: TypeScript.
 - Storage: SQLite.
-- Interface: terminal-first CLI with TUI screens where useful.
-- Safety model: dry-run first, explicit confirmation for destructive actions.
+- Interface: terminal-first CLI.
+- Safety model: scan and printed plan first, explicit confirmation or selection unless `-f` is used.

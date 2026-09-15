@@ -1,7 +1,12 @@
 import { describe, expect, test } from "bun:test";
+import packageJson from "../../package.json";
 import { createProgram } from "../../src/cli/program";
 
 describe("kundol CLI program", () => {
+  test("reports the package version", () => {
+    expect(createProgram().version()).toBe(packageJson.version);
+  });
+
   test("registers only the target CLI-only root command surface", async () => {
     const program = createProgram();
     const help = program.helpInformation();

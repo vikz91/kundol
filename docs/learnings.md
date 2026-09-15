@@ -1,7 +1,7 @@
 # kundol Learnings
 
 Created: 2026-06-13 07:21:12 IST  
-Last updated: 2026-06-16 15:39:39 IST  
+Last updated: 2026-09-15 11:45:20 IST
 
 This file is the chronological learning log for agents working on kundol.
 Add discoveries, decisions, implementation gotchas, and useful references here as work progresses.
@@ -274,3 +274,69 @@ Add discoveries, decisions, implementation gotchas, and useful references here a
 - `optimise startup` is macOS-first: it scans user LaunchAgents, system LaunchAgents/LaunchDaemons, and app Login Items.
 - Only non-Apple user LaunchAgents under `~/Library/LaunchAgents` are safe automatic disable candidates. System paths, Apple-labelled items, and app Login Items are review/protected and are not disabled by `-f`.
 - Startup optimisation disables items with `launchctl bootout` plus `launchctl disable`; it does not delete plist files.
+
+### 2026-09-15 10:25:50 IST
+
+- The current public CLI is only bare `kundol` plus `optimise storage`, `startup`, `projects <workdir>`, and `repos <workdir>`; old indexing, scan, clean, registry, and archive modules remain internal. `repos` invokes the same scanner as `projects` and does not filter for Git repositories.
+- `docs/context.md` is the code-grounded current behavior map. Earlier TUI, storage, Docker, and user-flow docs describe historical or planned behavior and must not be used as proof of implemented commands.
+- Storage currently auto-selects all seven-day-old top-level `os.tmpdir()` entries and runs broad Docker system prune without volumes after confirmation or `-f`. This diverges from earlier narrow-cleanup guidance, so future safety changes should inspect these paths directly.
+- Startup disables only eligible user LaunchAgents and leaves plists in place. Its CLI plan does not display system or app Login Item review rows. Project reports estimate reclaimed bytes from scan-time sizes; storage and startup do not report reclaimed-byte totals.
+- Documentation-only audit passed CLI help inspection, link/path checks, `git diff --check`, and `bun run check` (54 tests).
+
+### 2026-09-15 10:33:39 IST
+
+- Added `docs/developer-cleanup-targets.md` as a sourced candidate inventory for developer-machine storage cleanup, with categories, targets, safety strategies, and sources in separate Markdown table columns.
+- Future cleanup plans should group targets by owning tool and separate regenerable caches from configuration, archives, VM/container data, local AI chats/uploads, and other user data. Age or a large footprint alone is not enough evidence for automatic deletion.
+- The candidate inventory is future-work research, not proof of current CLI behavior; `docs/context.md` remains the implemented-surface reference.
+
+### 2026-09-15 10:34:14 IST
+
+- The CLI-only brand should describe the implemented storage, startup, and generated-project-file workflows rather than the historical dashboard and project-registry promise.
+- The new imagegen logo was initially saved beside the earlier icon; `KUN-086` later made it the sole `assets/logo.png`. Its PNG has alpha, with a transparent outer corner and an opaque icon centre.
+- This checkout has no Git remote. Repository description copy is recorded in `docs/brand.md`, but updating GitHub metadata requires a connected repository.
+
+### 2026-09-15 11:11:36 IST
+
+- The short README comparison uses the alternatives' own docs: Apple Storage for built-in space views, ncdu for disk-usage exploration, and Mole for broader cleanup/maintenance and project purge. Describe their best fit instead of claiming kundol alone offers plans or project cleanup.
+- Static badges should reflect verified repo facts. This checkout has no CI or license file, so do not add status or license badges until those exist.
+- Concurrent plan edits can claim the next task ID; recheck the ledger before completing a new task and preserve unrelated active rows.
+
+### 2026-09-15 11:14:02 IST
+
+- Husky v9 keeps generated Git hook wrappers under ignored `.husky/_`; only `.husky/pre-commit` and `.husky/pre-push` need to be committed. `prepare` sets `core.hooksPath` to `.husky/_` for the local clone.
+- The commit gate should check all source, tests, and scripts with ESLint, run strict `tsc --noEmit`, and bundle the CLI entrypoint. Bun can bundle to `/dev/null` so a hook leaves no generated files.
+- A push boot smoke can launch the bare CLI and `--help` with a temporary `HOME`, checking both exit codes and expected output without touching the user's Kundol state.
+
+### 2026-09-15 11:16:26 IST
+
+- `assets/logo.png` is now the only project logo asset. The generated image replaced the earlier PNG and all live README/KB/launch references use the canonical path.
+- For binary logo replacement, compare the workspace asset checksum to the generated source and check that no versioned sibling or stale live reference remains.
+
+### 2026-09-15 11:22:53 IST
+
+- The sourced developer cleanup table now maps to 76 canonical, versioned JSON rules in 13 categories. SwiftPM, Java/Android build output, and Maven/Gradle shared artifacts should each have one physical rule to avoid double-counting.
+- Keep optimisation definitions separate from execution: registry-only PRs can extend supported selectors and adapters, while unknown adapters stay inactive until code-owned probe, live revalidation, action, and audit flows exist. The current public CLI does not load the catalogue.
+- Data-bearing volumes, VM disks, AI chats/uploads, app support/container data, Git metadata, and Xcode archives are protected inventory entries. Review rules require explicit selection and cannot be force-applied; generated safe rules must recheck scope, symlinks, markers, and activity.
+- Strict registry validation should reject broken IDs/source references and raw shell or broad filesystem command forms. `bun run check` now includes `registry:check`; 59 tests, typecheck, lint, bundle, smoke, local links, and diff checks passed.
+
+### 2026-09-15 11:27:41 IST
+
+- Commit tool-version policy should use the ranges already declared in `package.json`: `engines.bun` for the running Bun and `devDependencies.typescript` for the local compiler. Bun's built-in semver matcher handles both ranges, so no extra dependency or hard-coded second policy is needed.
+- Read TypeScript's version from local `node_modules/typescript/package.json` to fail clearly when the dependency is missing, rather than allowing Bun's runtime module auto-install to hide a missing local compiler.
+- Concurrent release work can make repository-wide lint transiently fail. Check the plan's active owner before editing a new script outside the selected task's scope.
+
+### 2026-09-15 11:39:56 IST
+
+- Moving root coordination Markdown into `docs/` changes relative links; validate links from each page's new directory. GitHub issue and PR templates stay under `.github/` because GitHub discovers them there.
+- The commit-time version hook changes and stages `package.json` before Git writes the commit, leaving one developer commit. Keep the CLI `--version` output tied to `package.json` so a bumped standalone executable reports its actual release version.
+- A post-merge changelog needs a separate bot commit on `main`; that does not split the developer's versioned commit. The release workflow consumes metadata from the exact successful changelog run and builds from its recorded merge SHA, not whichever commit is latest on `main`.
+- GitHub Actions concurrency defaults to replacing an older pending run even with `cancel-in-progress: false`; `queue: max` preserves up to 100 queued runs. A same-version PR must not rewrite notes for an immutable, previously built executable.
+- Universal macOS packaging uses Bun's arm64/x64 standalone targets, `lipo`, and an ad hoc `codesign` signature. The signature verifies the combined binary but is not Developer ID notarization.
+- A Git remote can appear during concurrent work; recheck it before documenting a GitHub limitation. `origin` now points to `vikz91/kundol`, whose description matches the brand copy, but `git ls-remote --heads` shows no published branch yet.
+
+### 2026-09-15 11:45:20 IST
+
+- A Linux Docker demo needs explicit, container-only startup dependency injection to exercise the macOS CLI flow. Keep the normal CLI entrypoint tied to the actual platform and route only demo `osascript`/`launchctl` calls through a fake runner.
+- Storage's `bun pm cache rm` expects a package working directory. The demo `kundol` Bash launcher changes to `/opt/kundol` before running the CLI; first-time examples use absolute `/sandbox/projects` workdirs.
+- Fake Docker prune must verify its root, pruneable categories, and each live child stay inside the sandbox. Seeded fake volumes and running-container records are fixture files, not Docker-managed host resources.
+- The disposable image passed `bun run check` (76 tests) and isolated `docker run` smoke checks for installed command lookup, project cleanup, storage cleanup, and simulated startup without host mounts or a Docker socket.

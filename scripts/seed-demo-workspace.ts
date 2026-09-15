@@ -211,12 +211,8 @@ await writeFile(
     "Try:",
     "",
     "```bash",
-    "kundol init --workspace .",
-    "kundol index",
-    "kundol dashboard",
-    "kundol list",
-    "kundol scan node-api-orders",
-    "kundol clean node-api-orders",
+    "kundol optimise projects .",
+    "kundol optimise repos .",
     "```",
     "",
     "The generated dependency/build artifacts are fake binary files intended for local CLI testing.",
@@ -227,10 +223,8 @@ await writeFile(
 console.log(`Seeded ${projects.length} demo projects in ${targetRoot}`);
 console.log("");
 console.log("Try:");
-console.log(`  kundol init --workspace ${shellQuote(targetRoot)}`);
-console.log("  kundol index");
-console.log("  kundol list");
-console.log("  kundol scan node-api-orders");
+console.log(`  kundol optimise projects ${shellQuote(targetRoot)}`);
+console.log(`  kundol optimise repos ${shellQuote(targetRoot)}`);
 
 async function writeProject(projectRoot: string, project: ProjectSpec) {
   for (const file of project.files) {

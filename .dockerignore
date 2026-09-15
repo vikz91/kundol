@@ -1,0 +1,16 @@
+.git
+.github
+.husky
+.codex
+node_modules
+tests
+docs
+registry
+assets
+coverage
+dist
+build
+.kundol
+.env
+.env.*
+*.log

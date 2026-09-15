@@ -453,7 +453,7 @@ One unreadable directory should not fail the entire workspace index.
 - Inject clock and filesystem dependencies in tests.
 - Prefer explicit data models over untyped objects.
 - Add tests at the domain boundary where behavior matters.
-- Document non-obvious tradeoffs in `learnings.md`, then promote durable decisions to `docs/`.
+- Document non-obvious tradeoffs in `docs/learnings.md`, then promote durable decisions to `docs/`.
 
 ## Initial Technology Defaults
 

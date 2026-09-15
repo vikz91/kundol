@@ -1,7 +1,7 @@
 # kundol Project Plan
 
 Created: 2026-06-13 07:18:52 IST  
-Last updated: 2026-06-16 15:39:39 IST  
+Last updated: 2026-09-15 11:45:20 IST
 Project codename: kundol  
 Product concept name from source context: DevShelf  
 
@@ -20,17 +20,16 @@ Use datetime format: `YYYY-MM-DD HH:mm:ss IST`.
 
 ## Product Direction
 
-kundol is a Bun.js CLI-only app with non-AI workers that scan developer workspaces and identify user-created projects: servers, web apps, libraries, CLIs, experiments, mixed-runtime repos, and other developer-created codebases.
-It stores project metadata in SQLite, analyzes disk usage and runtime/toolchain signals, recommends safe cleanup, executes conservative confirmed cleanup, and writes audit records.
+kundol is a macOS-first Bun.js CLI for optimising developer-machine storage and startup behavior. Its public workflows clean package/runtime caches and old temporary entries, disable selected user LaunchAgents, and remove generated artifacts inside detected projects. It stores action audit records in SQLite; retained project indexing and scan code can store project metadata but has no public command in the current CLI.
 
 The current product direction is a radical CLI-only simplification:
 
 - Remove the dashboard/TUI as a product surface.
 - Collapse cleanup workflows under British-spelled `optimise` command groups.
-- Use `kundol optimise storage`, `kundol optimise projects <workdir>`, and `kundol optimise repos <workdir>` as the primary cleanup commands.
+- Use `kundol optimise storage`, `kundol optimise startup`, `kundol optimise projects <workdir>`, and `kundol optimise repos <workdir>` as the public optimisation commands.
 - Do not expose `--dry-run`, `--apply`, or `--no-dry-run` flags.
-- Every optimise run scans first, prints a cleanup plan, asks for confirmation unless forced, executes only safe cleanup, prints a final report, and audits the run.
-- Support only `-f, --force` to skip the confirmation prompt after the scan/plan step.
+- Every optimise run scans first, prints a cleanup plan, asks for confirmation or startup item selection unless forced, executes selected actions, prints a final report, and audits the run.
+- Support only `-f, --force` to skip the confirmation or startup selection prompt after the scan/plan step.
 
 Current runtime analysis scope: JavaScript/TypeScript, Java, .NET, Python, Rust, and Go.
 Future runtime roadmap: iOS and Android.
@@ -132,6 +131,16 @@ The pasted context originally named the product `DevShelf`; the MVP now uses `ku
 | KUN-077 | Planning/Testing | Align planning docs and high-level CLI tests with the CLI-only `optimise` command shift. | don | Devika/Neha-style Codex worker | 2026-06-16 05:24:08 IST | 2026-06-16 05:24:08 IST | 2026-06-16 05:24:08 IST | KUN-076 | Updated planning and command docs for CLI-only `kundol optimise storage/projects/repos`, marked TUI docs deprecated, recorded the no dry-run/apply/no-dry-run flag decision, and adjusted only the top-level CLI command-surface test. |
 | KUN-078 | CLI/Optimize | Remove dashboard/TUI surfaces and implement CLI-only optimise workflows. | don | Codex + subagents | 2026-06-16 05:24:08 IST | 2026-06-16 05:24:08 IST | 2026-06-16 05:34:10 IST | KUN-077, KUN-F013 | Removed OpenTUI/Ink code, TUI tests, legacy command modules, and TUI dependencies; added `kundol optimise storage/projects/repos` with scan-plan-confirm-clean-report flow, `-f` as the only option, project-local optimizer service, storage temp/cache cleanup, final reports, and audit records. |
 | KUN-079 | CLI/Startup | Add `kundol optimise startup` for safe startup item disable flow. | don | Codex | 2026-06-16 15:39:39 IST | 2026-06-16 15:39:39 IST | 2026-06-16 15:39:39 IST | KUN-078 | Added macOS-first startup scanner for user LaunchAgents, system LaunchAgents/LaunchDaemons, and app Login Items; `-f` disables only safe user LaunchAgents while system/app/Apple items stay review/protected. |
+| KUN-080 | Documentation | Audit the current codebase and write implementation-grounded context for the tool, commands, architecture, and macOS optimization behavior. | don | Codex | 2026-09-15 10:19:15 IST | 2026-09-15 10:19:15 IST | 2026-09-15 10:25:50 IST | KUN-078, KUN-079 | Added `docs/context.md`; aligned current command, product, dependency, README, and agent indexes; documented retained modules and implementation/safety gaps. CLI help, links, diff check, and `bun run check` passed (54 tests). |
+| KUN-081 | Branding | Refresh GitHub description, README summary, logo description, and logo image for the CLI-only product. | don | Codex | 2026-09-15 10:29:39 IST | 2026-09-15 10:29:39 IST | 2026-09-15 10:34:14 IST | KUN-080 | Added metadata copy and new raster `K` logo; updated README, brand, knowledge-base, and launch references. Verified asset paths, transparent corners, and diff whitespace. No Git remote is configured, so GitHub metadata was not applied. |
+| KUN-082 | Documentation | Record sourced macOS developer cleanup categories, targets, and safety strategies in a Markdown table. | don | Codex | 2026-09-15 10:31:50 IST | 2026-09-15 10:31:50 IST | 2026-09-15 10:33:39 IST | KUN-080 | Added 13 sourced cleanup categories in `docs/developer-cleanup-targets.md`, with a separate sources column and proposed safety stance; linked both indexes. Markdown structure, local links, and `git diff --check` passed. |
+| KUN-083 | Registry | Create a versioned JSON optimisation registry covering the sourced developer-machine targets, with validation for JSON-only contributions. | don | Codex | 2026-09-15 11:06:57 IST | 2026-09-15 11:06:57 IST | 2026-09-15 11:22:53 IST | KUN-082 | Added 76 catalogue-only rules across 13 categories with 52 linked primary sources, strict Zod and semantic safety validation, contribution docs, and 5 tests. `bun run check` passed (59 tests), as did local link and diff checks. CLI execution remains a separate future integration task. |
+| KUN-084 | Developer Workflow | Add Husky, ESLint, mandatory pre-commit lint and compile checks, and a safe pre-push CLI boot smoke check. | don | Codex | 2026-09-15 11:09:27 IST | 2026-09-15 11:09:27 IST | 2026-09-15 11:16:09 IST | KUN-003, KUN-080 | Added ESLint/TypeScript rules, fail-fast Husky hooks, Bun bundle check without artifacts, and bare/help CLI smoke under a temp home. Frozen install, both hook wrappers, `bun run check` (54 tests), and diff whitespace passed. |
+| KUN-085 | Documentation | Refresh the short README with truthful badges, features, usage, and a sourced alternatives comparison. | don | Codex | 2026-09-15 11:09:12 IST | 2026-09-15 11:09:12 IST | 2026-09-15 11:11:36 IST | KUN-081 | Rewrote README to 45 lines with eight truthful static badges, three feature bullets, four runnable commands, and a primary-source alternatives table. CLI help, local paths, badge responses, and `git diff --check` passed. |
+| KUN-086 | Branding | Replace the previous logo and use the generated mark as the only canonical `assets/logo.png`. | don | Codex | 2026-09-15 11:15:25 IST | 2026-09-15 11:15:25 IST | 2026-09-15 11:16:26 IST | KUN-081 | Replaced the tracked old PNG with the generated image, removed the versioned sibling, and updated README/brand/index/launch references. Only one logo file remains; its SHA-256 matches the generated original. Link and whitespace checks passed. |
+| KUN-087 | Developer Workflow | Check Bun and installed TypeScript versions against declared package ranges before the pre-commit quality checks. | don | Codex | 2026-09-15 11:25:10 IST | 2026-09-15 11:25:10 IST | 2026-09-15 11:29:58 IST | KUN-084 | Added the version gate before lint; checks running Bun and local TypeScript against package ranges and rejects missing or incompatible versions. `bun run check` passed (73 tests), and the installed pre-commit wrapper and diff whitespace passed. |
+| KUN-088 | GitHub/Release | Consolidate docs, add contribution templates, and implement merged-PR CI, changelog, version prompt, and executable release workflows. | don | Codex + Kabir/Meera/Neha agents | 2026-09-15 11:26:03 IST | 2026-09-15 11:26:03 IST | 2026-09-15 11:43:10 IST | KUN-081, KUN-084 | Moved root coordination docs into `docs/`; added contributor, author, issue, PR, release, and changelog docs/templates. CI runs on merged PRs; changelog writes one bot follow-up commit; pre-commit stages the chosen version in one developer commit; release builds one universal macOS executable from the merge SHA. `bun run check` passed (76 tests), YAML/hooks/links/diff passed, universal build smoke passed. Applied the exact GitHub description; the remote is empty, so live workflows await a first push and bot push permission. |
+| KUN-089 | Developer Sandbox | Package a disposable Docker CLI demo with the `kundol` command, seeded project/storage/Docker-like fixtures, and first-run instructions. | don | Codex | 2026-09-15 11:29:12 IST | 2026-09-15 11:29:12 IST | 2026-09-15 11:45:20 IST | KUN-080, KUN-084 | Built `kundol-demo:local`; tested PATH, project apply, simulated startup, storage apply, protected fake volumes, and `bun run check` (76 tests). First-run guide in `docs/demo/docker-sandbox.md`. |
 
 ## Future Backlog
 

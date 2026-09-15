@@ -1,8 +1,8 @@
 # Docker Monitoring And Cleanup Knowledge Base
 
 Created: 2026-06-13 07:29:15 IST  
-Last updated: 2026-06-13 07:29:15 IST  
-Related tasks: `KUN-025`, `KUN-029`, `KUN-030`, `KUN-031`, `KUN-F007`, `KUN-F008`, `KUN-F009`, `KUN-F010`
+Last updated: 2026-09-15 11:20:56 IST
+Related tasks: `KUN-025`, `KUN-029`, `KUN-030`, `KUN-031`, `KUN-F007`, `KUN-F008`, `KUN-F009`, `KUN-F010`, `KUN-083`
 
 ## Purpose
 
@@ -11,6 +11,10 @@ Docker support covers stored images, containers, volumes, networks, and build ca
 
 Docker cleanup has higher risk than project-local generated files.
 Every destructive Docker workflow must be dry-run first and require explicit confirmation.
+
+The proposed [`optimisations.json`](../registry/optimisations.json) catalogue separates stopped containers, images, BuildKit cache, networks, Compose resources, and volumes by resource ID and review tier. Volumes and the Docker Desktop disk image are inventory-only entries. The registry is not wired into the CLI; current storage apply still uses broad `docker system prune --force` without volumes, as documented in [`context.md`](context.md). Future integration must replace that broad action with resource-level revalidation and selected removal.
+
+For first-time testing, [`demo/docker-sandbox.md`](demo/docker-sandbox.md) packages the CLI with a fixture-only `docker` command. Its prune action touches only seeded files inside the disposable container and keeps fake volume data; it does not connect to a Docker daemon or test real volume management.
 
 ## Resource Types
 
@@ -213,7 +217,7 @@ Test cases:
 When agents add Docker support:
 
 1. Update this file with any new Docker resource rules.
-2. Add or update tasks in `plan.md`.
-3. Add chronological notes in `learnings.md`.
+2. Add or update tasks in `docs/plan.md`.
+3. Add chronological notes in `docs/learnings.md`.
 4. Add tests for every safety rule.
 5. Keep Docker cleanup separate from project-local cleanup unless a project relation is explicitly known.

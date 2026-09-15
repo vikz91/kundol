@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+set -euo pipefail
+exec bun /opt/kundol/scripts/fake-docker-cli.ts "$@"

@@ -24,6 +24,7 @@ import {
   scanStartupOptimiseTargets,
   type StartupApplyResult,
   type StartupCandidate,
+  type StartupCommandRunner,
   type StartupOptimisePlan,
 } from "../services/startup-optimizer";
 import { exitCodes, type ExitCode } from "../shared/exit-codes";
@@ -38,6 +39,8 @@ export interface CommandContext {
   output: Output;
   databasePath?: string;
   homeDir?: string;
+  startupPlatform?: NodeJS.Platform;
+  startupRunner?: StartupCommandRunner;
 }
 
 export interface OptimiseRunOptions {
@@ -144,7 +147,12 @@ export async function optimiseProjects(
 
 export async function optimiseStartup(context: CommandContext, options: OptimiseRunOptions): Promise<CommandResult> {
   recordSessionAudit(context, { action: "STARTUP_SCAN" });
-  const plan = await withSpinner("Scanning startup targets", () => scanStartupOptimiseTargets(dbOptions(context)));
+  const startupOptions = {
+    ...dbOptions(context),
+    ...(context.startupPlatform ? { platform: context.startupPlatform } : {}),
+    ...(context.startupRunner ? { runner: context.startupRunner } : {}),
+  };
+  const plan = await withSpinner("Scanning startup targets", () => scanStartupOptimiseTargets(startupOptions));
   recordAction(context, "STARTUP_SCAN", {
     platform: plan.platform,
     candidateCount: plan.candidates.length,
@@ -169,7 +177,7 @@ export async function optimiseStartup(context: CommandContext, options: Optimise
   }
 
   recordSessionAudit(context, { action: "STARTUP_OPTIMISE" });
-  const result = await withSpinner("Optimising startup", () => applyStartupOptimisePlan(plan, { ...dbOptions(context), candidateIds }));
+  const result = await withSpinner("Optimising startup", () => applyStartupOptimisePlan(plan, { ...startupOptions, candidateIds }));
   recordAction(context, "STARTUP_OPTIMISE", summarizeStartupResult(result));
   if (options.json) {
     writeJson(context, { plan, result });
