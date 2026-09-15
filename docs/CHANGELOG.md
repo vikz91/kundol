@@ -2,6 +2,11 @@
 
 Merged pull requests to `main` are recorded here by the [changelog workflow](../.github/workflows/changelog.yml). Entries are grouped by version and credit the pull request author's GitHub handle.
 
+## v0.3.1 (2026-09-15)
+
+### Changed
+- build: use package release command ([#4](https://github.com/vikz91/kundol/pull/4)) — [@vikz91](https://github.com/vikz91) <!-- pr:4 -->
+
 ## v0.3.0 (2026-09-15)
 
 ### Changed
