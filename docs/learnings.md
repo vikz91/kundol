@@ -1,7 +1,7 @@
 # kundol Learnings
 
 Created: 2026-06-13 07:21:12 IST  
-Last updated: 2026-09-15 11:45:20 IST
+Last updated: 2026-09-15 12:09:59 IST
 
 This file is the chronological learning log for agents working on kundol.
 Add discoveries, decisions, implementation gotchas, and useful references here as work progresses.
@@ -340,3 +340,21 @@ Add discoveries, decisions, implementation gotchas, and useful references here a
 - Storage's `bun pm cache rm` expects a package working directory. The demo `kundol` Bash launcher changes to `/opt/kundol` before running the CLI; first-time examples use absolute `/sandbox/projects` workdirs.
 - Fake Docker prune must verify its root, pruneable categories, and each live child stay inside the sandbox. Seeded fake volumes and running-container records are fixture files, not Docker-managed host resources.
 - The disposable image passed `bun run check` (76 tests) and isolated `docker run` smoke checks for installed command lookup, project cleanup, storage cleanup, and simulated startup without host mounts or a Docker socket.
+
+### 2026-09-15 12:03:56 IST
+
+- For a logo size-only request, verify exact pixel dimensions and alpha. An imagegen faithful-resize preview remained 1254×1254 and lost transparency, so the final 512×512 RGBA asset was downscaled directly from the original PNG with `sips`, preserving its composition and sole canonical path.
+
+### 2026-09-15 12:09:59 IST
+
+- Long planning pages had drifted into descriptions of removed TUI and `init/index/scan/clean` commands. Durable docs now lead with the implemented `optimise` CLI, mark internal retained modules and future designs explicitly, and link disposable Docker first-run testing.
+- The active project allowlist selects some outputs that the proposed registry rates more cautiously, including Go `bin`, .NET `TestResults`, and Rust Tarpaulin reports. Document the current classifier separately from catalogue policy until integration changes the code.
+- Docker storage currently uses broad system prune without volumes; the proposed registry is resource-specific and protects unused networks/volumes. Treat these as distinct implementation and design states in docs.
+- Time-sensitive launch claims can go stale: issue/PR templates are already present, while license, conduct, and security policies remain absent. Prefer wording that identifies actual files and avoids claims about a remote's branch state without a fresh check.
+
+### 2026-09-15 12:10:06 IST
+
+- Registry lifecycle status describes registry-backed delivery, not whether a similar hardcoded CLI workflow exists. Keep catalogue-only rules `proposed`; move a rule to `beta` or `published` only after its selector, live validators, action, CLI flow, and tests are implemented.
+- Source links must support the exact target and action granularity. NuGet global clear is whole-store, Playwright uninstall is installation-scoped, Colima profile deletion preserves its data disk by default, and kind images belong to a container engine. Replace unsupported generic inference-cache claims with the documented Hugging Face Xet transfer cache.
+- Generated names such as `bin`, `build`, and `coverage` can contain releases or retained reports. Require owner evidence and explicit review for ambiguous output. Use typed file/directory selectors and literal names; suffix patterns need a dedicated selector and must not turn into wildcards in literal generated paths.
+- `bun pm cache rm` needs a suitable package working directory; describe its future execution through a cwd-aware adapter instead of assuming a fixed argv command works from every location. Registry validation, lint, typecheck, tests, bundle, and smoke passed after tightening this catalogue.

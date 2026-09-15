@@ -1,7 +1,7 @@
 # kundol Project Plan
 
 Created: 2026-06-13 07:18:52 IST  
-Last updated: 2026-09-15 11:45:20 IST
+Last updated: 2026-09-15 12:09:59 IST
 Project codename: kundol  
 Product concept name from source context: DevShelf  
 
@@ -141,7 +141,9 @@ The pasted context originally named the product `DevShelf`; the MVP now uses `ku
 | KUN-087 | Developer Workflow | Check Bun and installed TypeScript versions against declared package ranges before the pre-commit quality checks. | don | Codex | 2026-09-15 11:25:10 IST | 2026-09-15 11:25:10 IST | 2026-09-15 11:29:58 IST | KUN-084 | Added the version gate before lint; checks running Bun and local TypeScript against package ranges and rejects missing or incompatible versions. `bun run check` passed (73 tests), and the installed pre-commit wrapper and diff whitespace passed. |
 | KUN-088 | GitHub/Release | Consolidate docs, add contribution templates, and implement merged-PR CI, changelog, version prompt, and executable release workflows. | don | Codex + Kabir/Meera/Neha agents | 2026-09-15 11:26:03 IST | 2026-09-15 11:26:03 IST | 2026-09-15 11:43:10 IST | KUN-081, KUN-084 | Moved root coordination docs into `docs/`; added contributor, author, issue, PR, release, and changelog docs/templates. CI runs on merged PRs; changelog writes one bot follow-up commit; pre-commit stages the chosen version in one developer commit; release builds one universal macOS executable from the merge SHA. `bun run check` passed (76 tests), YAML/hooks/links/diff passed, universal build smoke passed. Applied the exact GitHub description; the remote is empty, so live workflows await a first push and bot push permission. |
 | KUN-089 | Developer Sandbox | Package a disposable Docker CLI demo with the `kundol` command, seeded project/storage/Docker-like fixtures, and first-run instructions. | don | Codex | 2026-09-15 11:29:12 IST | 2026-09-15 11:29:12 IST | 2026-09-15 11:45:20 IST | KUN-080, KUN-084 | Built `kundol-demo:local`; tested PATH, project apply, simulated startup, storage apply, protected fake volumes, and `bun run check` (76 tests). First-run guide in `docs/demo/docker-sandbox.md`. |
-| KUN-090 | Registry | Add verified storage-only gap rules and per-rule lifecycle status to the catalogue. | in progress | Codex | 2026-09-15 11:56:07 IST | 2026-09-15 11:56:07 IST |  | KUN-083 | Audit every existing and new rule against primary owner documentation; keep catalogue-only execution boundary. |
+| KUN-090 | Registry | Add verified storage-only gap rules and per-rule lifecycle status to the catalogue. | don | Codex | 2026-09-15 11:56:07 IST | 2026-09-15 11:56:07 IST | 2026-09-15 12:10:36 IST | KUN-083 | Added 19 source-linked storage rules and required proposed/wip/beta/published status under schema v2; audited and corrected the existing 76 rules against owner documentation. Catalogue remains inactive. `bun run check` passed (78 tests), plus targeted link and diff checks. |
+| KUN-091 | Branding | Resize the sole kundol logo to exactly 512x512 and display it in README. | don | Codex | 2026-09-15 12:01:48 IST | 2026-09-15 12:01:48 IST | 2026-09-15 12:04:58 IST | KUN-086 | Downscaled the existing sole `assets/logo.png` to an exact 512×512 RGBA PNG, updated README display size and brand guidance, and checked pixels, alpha, sole asset path, local links, and scoped diff whitespace. |
+| KUN-092 | Documentation | Audit stale pages against the current CLI and code, update useful guidance, and make docs concise. | don | Codex + Isha/Kabir/Devika subagents | 2026-09-15 12:02:05 IST | 2026-09-15 12:02:05 IST | 2026-09-15 12:09:59 IST | KUN-080, KUN-089 | Refreshed 18 documentation pages; cut about 3,300 stale narrative lines, separated current CLI from proposals, and linked Docker first-run testing. All 27 Markdown files passed local link/anchor checks; CLI help and scoped diff whitespace passed. Preserved active registry and branding work. |
 
 ## Future Backlog
 

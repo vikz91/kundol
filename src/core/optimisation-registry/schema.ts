@@ -14,7 +14,9 @@ const toolCacheSelector = z.strictObject({
 const targetKind = z.enum(["file", "directory", "either"]);
 const generatedPathSelector = z.strictObject({
   kind: z.literal("generated_path"),
-  names: z.array(z.string().min(1).max(50).regex(/^[^/\\]+$/).refine((name) => name !== "." && name !== "..", "path traversal is not allowed")).min(1),
+  names: z.array(z.string().min(1).max(50).regex(/^[^/\\]+$/)
+    .refine((name) => name !== "." && name !== "..", "path traversal is not allowed")
+    .refine((name) => ["*", "?", "[", "]"].every((character) => !name.includes(character)), "wildcards are not allowed in literal path names")).min(1),
   markers: z.array(z.string().min(1).max(80).regex(/^[^/\\]+$/)).min(1),
   targetKind: targetKind.optional(),
 });
