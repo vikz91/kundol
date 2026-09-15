@@ -8,9 +8,10 @@ export interface MergedPullRequest {
   mergedAt: string;
   mergeCommitSha: string;
   labels: string[];
+  authorLogin: string;
 }
 
-type Category = "Breaking" | "Added" | "Changed" | "Fixed" | "Documentation" | "Maintenance";
+type Category = "Breaking" | "Registry" | "Added" | "Changed" | "Fixed" | "Documentation" | "Maintenance";
 
 export function parseMergedPullRequest(event: unknown): MergedPullRequest {
   if (!event || typeof event !== "object" || !("pull_request" in event)) throw new Error("Missing pull_request event");
@@ -31,6 +32,10 @@ export function parseMergedPullRequest(event: unknown): MergedPullRequest {
   if (typeof record.merge_commit_sha !== "string" || !/^[a-f0-9]{40}$/i.test(record.merge_commit_sha)) {
     throw new Error("Invalid merge commit SHA");
   }
+  const user = record.user;
+  if (!user || typeof user !== "object" || !("login" in user) || typeof user.login !== "string" || !user.login.trim() || user.login.length > 80) {
+    throw new Error("Missing or invalid pull request author login");
+  }
   const labels = Array.isArray(record.labels)
     ? record.labels.flatMap((label) => {
         if (!label || typeof label !== "object" || !("name" in label) || typeof label.name !== "string") return [];
@@ -44,12 +49,14 @@ export function parseMergedPullRequest(event: unknown): MergedPullRequest {
     mergedAt: record.merged_at,
     mergeCommitSha: record.merge_commit_sha,
     labels,
+    authorLogin: user.login.trim(),
   };
 }
 
 export function categoryFor(labels: string[]): Category {
   const has = (...names: string[]) => labels.some((label) => names.includes(label.toLowerCase()));
   if (has("breaking", "breaking-change", "breaking change")) return "Breaking";
+  if (has("registry", "registry-entry")) return "Registry";
   if (has("feature", "enhancement", "added")) return "Added";
   if (has("fix", "bug", "bugfix")) return "Fixed";
   if (has("documentation", "docs")) return "Documentation";
@@ -68,7 +75,8 @@ export function updateChangelog(current: string, version: string, pr: MergedPull
   const date = new Date(pr.mergedAt).toISOString().slice(0, 10);
   const heading = `## v${version} (${date})`;
   const category = categoryFor(pr.labels);
-  const bullet = `- ${escapeMarkdown(pr.title)} ([#${pr.number}](${pr.url})) ${marker}`;
+  const credit = `[@${escapeMarkdown(pr.authorLogin)}](https://github.com/${encodeURIComponent(pr.authorLogin)})`;
+  const bullet = `- ${escapeMarkdown(pr.title)} ([#${pr.number}](${pr.url})) — ${credit} ${marker}`;
   const initial = current.trim() ? current.replace(/\r\n/g, "\n").trimEnd() + "\n" : "# Changelog\n";
   if (!initial.startsWith("# Changelog\n")) throw new Error("Changelog must start with # Changelog");
 

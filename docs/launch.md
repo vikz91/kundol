@@ -1,32 +1,32 @@
 # kundol Launch and Community Guide
 
 Created: 2026-06-13
-Last updated: 2026-09-15
-Related tasks: `KUN-001`, `KUN-049`–`KUN-055`, `KUN-092`
+Last updated: 2026-09-15 13:07:32 IST
+Related tasks: `KUN-001`, `KUN-049`–`KUN-055`, `KUN-092`, `KUN-095`
 
 This is a launch checklist for the **current CLI**. See [commands](commands.md) and [codebase context](context.md) for implemented behavior, [release workflow](release.md) for publishing, and [launch research](viral-launch.md) for the rationale.
 
 ## Positioning and proof
 
-kundol is a macOS-first CLI for developer-machine storage, startup items, and generated project files. Its public commands are `optimise storage`, `optimise startup`, `optimise projects <workdir>`, and `optimise repos <workdir>`; `repos` currently uses the same scanner as `projects` and does not filter to Git repositories.
+kundol is a macOS-first CLI for developer-machine cache, startup, and generated-project optimisation. `optimise storage|startup|projects|repos` runs plans; `tools available|search|list|request` browses or requests registry tools, and `issue` opens GitHub reporting. `repos` uses the same project handler without Git filtering. See [usage](usage.md).
 
 Lead with a short, real terminal demo: scan a disposable workdir, show the plan, then choose whether to apply. Each run prints a plan before prompting; `-f` skips the prompt after planning. Show protected project files and the resulting audit record. Do not advertise project inventory, dashboards, archive, runtime audits, or a `--dry-run` flag as public features.
 
 For first-time testing, link the [Docker sandbox](demo/docker-sandbox.md). It supplies fake projects, temp entries, Docker resources, and startup items without mounting host projects or the host Docker socket. Explain that Docker startup behavior is simulated; real startup optimisation requires macOS.
 
-Safety copy must be specific. The project optimiser excludes source, `.git`, environment files, databases, uploads, media, assets, and migrations from automatic cleanup; storage excludes Docker volumes. [Current limits](context.md#present-limits-and-documentation-precedence) include broad old-temp selection and Docker system prune, so avoid blanket claims that every real-machine action is risk-free.
+Safety copy must be specific. Published project rules require approved selectors, markers, live path checks, and safety tiers; protected inventory cannot be removed. The current public storage route does not prune Docker or arbitrary temp entries. [Current limits](context.md#present-limits) include owner-tool re-download costs and startup verification gaps, so avoid blanket safety claims.
 
 ## Repository readiness
 
 Before a public launch:
 
-1. Verify the README's install, help, Docker demo, and CLI examples from a fresh checkout. Run `bun run check` and the local [release build](release.md#local-build) on macOS.
+1. Verify the README's install, [usage guide](usage.md), help, Docker demo, and CLI examples from a fresh checkout. Run `bun run check` and the local [release build](release.md#local-build) on macOS.
 2. Publish a license, code of conduct, and security reporting policy. The repository already has [issue templates](../.github/ISSUE_TEMPLATE/bug_report.md), a [PR template](../.github/pull_request_template.md), and a [contribution guide](CONTRIBUTING.md).
 3. Add one terminal recording that shows `optimise projects` against disposable fixtures and the plan/report. Keep claims tied to that output.
 4. Provide a clear limitations section and a route for reporting false positives, install failures, and confusing plans.
 5. Enable GitHub Discussions only if a maintainer can answer safety and support questions promptly. Seed a few useful topics: welcome, safety reports, generated-file candidates, and runtime markers.
 
-The repository contains merged-PR CI, changelog, and release workflows. The [release guide](release.md#repository-requirements) notes that live GitHub behavior still needs validation and that the changelog bot must be allowed to push to `main`.
+The repository contains merged-PR CI, changelog, and release workflows. After a successful changelog run, the release job creates and pushes the version tag itself; no manual tag push starts it. The [release guide](release.md#repository-requirements) lists the bot permissions needed for changelog and tag pushes and notes that live GitHub behavior still needs validation.
 
 ## Launch and feedback loop
 

@@ -7,14 +7,14 @@ describe("kundol CLI program", () => {
     expect(createProgram().version()).toBe(packageJson.version);
   });
 
-  test("registers only the target CLI-only root command surface", async () => {
+  test("registers optimisation, catalogue, and issue commands", async () => {
     const program = createProgram();
     const help = program.helpInformation();
 
     expect(help).toContain("optimise");
 
     const commandNames = program.commands.map((command) => command.name()).sort();
-    expect(commandNames).toEqual(["optimise"]);
+    expect(commandNames).toEqual(["issue", "optimise", "tools"]);
     expect(commandNames).not.toContain("dashboard");
     expect(commandNames).not.toContain("clean");
     expect(commandNames).not.toContain("optimize");

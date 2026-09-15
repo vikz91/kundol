@@ -63,7 +63,7 @@ function unsafeCommand(argv: string[]): boolean {
 
 export const optimisationRegistrySchema = z.strictObject({
   schemaVersion: z.literal(2),
-  integration: z.literal("catalogue_only"),
+  integration: z.enum(["catalogue_only", "engine_ready"]),
   messageTemplates: z.strictObject({
     plan: z.string().min(1),
     success: z.string().min(1),
@@ -92,6 +92,9 @@ export const optimisationRegistrySchema = z.strictObject({
     if (new Set(entry.validators).size !== entry.validators.length) context.addIssue({ code: "custom", path: [...path, "validators"], message: "duplicate validator" });
     if (entry.review.tier === "protected" && (entry.review.selection !== "none" || entry.review.forceEligible || entry.action.kind !== "none")) {
       context.addIssue({ code: "custom", path: [...path, "review"], message: "protected rules must be inventory-only" });
+    }
+    if (entry.review.tier !== "protected" && entry.action.kind === "none") {
+      context.addIssue({ code: "custom", path: [...path, "action"], message: "action none requires protected inventory tier" });
     }
     if (entry.review.tier === "review" && (entry.review.selection !== "explicit" || entry.review.forceEligible)) {
       context.addIssue({ code: "custom", path: [...path, "review"], message: "review rules require explicit selection and cannot use force" });

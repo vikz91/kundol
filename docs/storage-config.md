@@ -1,7 +1,7 @@
 # Storage and Configuration
 
 Created: 2026-06-14 00:48:12 IST
-Last updated: 2026-09-15 12:03:35 IST
+Last updated: 2026-09-15 13:07:32 IST
 Related tasks: `KUN-005`, `KUN-006`, `KUN-008`, `KUN-009`, `KUN-016`, `KUN-062`, `KUN-092`
 
 ## Current state
@@ -12,7 +12,7 @@ Migration v1 has `settings`, `workspaces`, `excluded_paths`, `projects`, `tags`,
 
 Per-process audit text files live at `$HOME/.kundol/sessions/session-<timestamp>-<pid>.log`. Each line is `ISO timestamp : device name : action : project name`. These logs are best-effort; SQLite `actions` rows are the durable structured record of successful scans, cancellations, and apply summaries. See [context](context.md) for audit caveats.
 
-The old workspace index and project registry services can still read these tables internally. **No public `init`, `index`, `config`, `list`, or `scan` command exists.** The public `optimise projects <workdir>` and `optimise repos <workdir>` scan the path supplied for that run; they do not use configured workspaces or `excluded_paths` rows. Storage can use previously persisted project/scan rows, but a new install will not populate them through the current CLI.
+The old workspace index and project registry services can still read these tables internally. There is no public `init`, `index`, `config`, project-registry `list`, or `scan` command. `kundol tools list` reads the bundled optimisation catalogue, not the SQLite project registry. The public `optimise projects <workdir>` and `optimise repos <workdir>` scan the path supplied for that run; they do not use configured workspaces or `excluded_paths` rows. The public `optimise storage` route probes published user-scope cache rules and does not use persisted project or scan rows.
 
 ## Retained decisions
 

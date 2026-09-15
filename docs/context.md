@@ -1,40 +1,38 @@
 # kundol Codebase Context
 
 Created: 2026-09-15 10:21:29 IST
-Last updated: 2026-09-15 12:02:05 IST
+Last updated: 2026-09-15 13:07:32 IST
 Related tasks: `KUN-080`, `KUN-084`, `KUN-087`, `KUN-089`, `KUN-092`
 Basis: current `src/`, `tests/`, `package.json`, and CLI registration, rather than historical plans.
 
 ## What the tool is today
 
-kundol is a local Bun and TypeScript CLI for macOS system optimisation. Its implemented focus is developer-machine storage and startup items: it scans a scope, prints a plan, asks the user to proceed, applies selected actions, reports the result, and writes audit records. The project and repository commands clean generated artifacts inside detected code projects. Startup optimisation is macOS-only; storage and project scanning use portable Bun/Node APIs but include macOS-specific review rows.
+kundol is a Bun and TypeScript CLI for developer-machine cache and generated-project optimisation plus eligible macOS startup items. Cleanup commands scan, print a plan, collect selection, apply live checks, report outcomes, and write SQLite/session audits. The read-only `tools` group browses the bundled JSON catalogue; `tools request` and `issue` open GitHub pages.
 
-The executable is `src/cli/index.ts`. `package.json` exposes it as `kundol`, requires Bun 1.2 or later, and provides `bun run dev` and `bun run check`. Commander registers only the root command and its `optimise` group. Running bare `kundol` prints the ASCII welcome banner and examples. `zod` validates the internal optimisation registry but is not part of public command routing.
+The executable is `src/cli/index.ts`. Commander registers `optimise`, `tools`, and `issue`; bare `kundol` prints a welcome banner. `registry/optimisations.json` is validated with Zod and embedded in the standalone binary. The current registry has `integration: engine_ready`; published user-scope and workdir rules are routed through the registry engine. Startup retains its own service.
 
 ## Public commands
 
-| Command | Scope and current effect |
+| Command | Current effect |
 |---|---|
 | `kundol` | Welcome banner and examples. |
-| `kundol optimise storage` | Plans selected package/runtime cache commands, Docker's system prune, top-level old temp entries, and safe cleanup from previously indexed inactive projects. |
-| `kundol optimise startup` | Scans launchd plists and classic app Login Items on macOS; offers safe user LaunchAgents for disablement. |
-| `kundol optimise projects <workdir>` | Finds runtime projects under the workdir to fixed depth 7 and removes safe project-local generated files and directories. |
-| `kundol optimise repos <workdir>` | Calls the **same handler and scanner** as `projects`; it does not require `.git` or filter to Git repositories. |
+| `kundol optimise storage` | Probes published user-scope owner-tool cache rules, offers safe suggestions and explicit review, then applies selected targets. |
+| `kundol optimise startup` | Offers eligible macOS user LaunchAgents for disablement after scanning. |
+| `kundol optimise projects <workdir>` | Finds matching projects to depth 7 and probes published generated-file rules. |
+| `kundol optimise repos <workdir>` | Uses the same project handler; Git is not required. |
+| `kundol tools available` | Lists published catalogue rules. |
+| `kundol tools search <query>` | Searches published IDs, labels, descriptions, and categories. |
+| `kundol tools list --status <status>` | Lists all or proposed/wip/beta/published rules. |
+| `kundol tools request` | Opens a prefilled GitHub Markdown issue for a missing tool. |
+| `kundol issue` | Opens GitHub's general issue chooser. |
 
-Each `optimise` subcommand has one workflow flag, `-f, --force`. It skips the prompt or startup item selection after scanning; it does not skip scanning or the plan. Standard Commander help/version flags also work. The public CLI has no `init`, `index`, `list`, `show`, `scan`, `clean`, `dashboard`, `config`, or `runtimes` command and no `--json`, `--dry-run`, `--apply`, `--no-dry-run`, or `--max-depth` flag. Internal action functions retain a `json` parameter, but command registration always passes `false`.
-
-Storage and project runs ask `[y/N]`; only `y` or `yes` applies. Startup asks for displayed item numbers, `all`/`a`, or blank to cancel. In a non-interactive terminal without `-f`, the CLI still scans, prints the plan, records cancellation, and exits with code 0. Partial apply results with one or more failed targets return code 70. Uncaught scan or database errors are not converted into a structured CLI result.
+Only `optimise` subcommands accept `-f, --force`; it selects safe, force-eligible targets after planning. Storage and project runs accept `y` for safe suggestions or displayed numbers for explicit review. Protected inventory cannot be selected. Startup accepts displayed safe item numbers or `all`. Without a TTY and without `-f`, the CLI prints the plan, records cancellation, and exits 0. One or more apply failures return 70. The public CLI has no top-level project `list`, `init`, `index`, `scan`, `clean`, dashboard, or `--json`, `--dry-run`, and `--apply` flags.
 
 ## Storage optimiser
 
-`src/services/optimize/storage-optimizer.ts` builds the plan from four sources:
+`optimise storage` creates a registry engine for user-scope rules. It probes published owner-tool caches, displays each candidate's tier, target, known size, action, and source, and reports unavailable rules. Current published examples include npm verification, pip purge, uv prune, Go cache maintenance, and pnpm store prune. Safe rules can be suggested; review rules need explicit selection. Exact code-approved owner commands run through structured arguments after target identity and live checks. The plan shows known target footprint; command savings may be unknown.
 
-1. **SQLite project registry:** projects with `cleanableBytes > 0` and status `PAUSED` or `STALE` are selected. `ACTIVE` and `NEW` projects are review-only. Applying a selected project uses the retained persisted-scan `cleanProjectService`; a fresh install has no indexed project rows or scan rows because there is no public indexing command now.
-2. **Available tools:** version/availability probes add selected commands for Bun cache removal, pip cache purge, npm cache verify, pnpm store prune, Yarn cache clean, Go build/test cache cleanup, and `docker system prune --force` without volumes. Docker is only probed with `docker info`; individual containers, images, networks, and cache entries are not inventoried.
-3. **Temporary files:** every regular file or directory immediately under `os.tmpdir()` with modification time at least seven days old is selected. The scanner skips symlinks. Before removal, apply checks that the entry is still old, has an accepted type, is not a symlink, and resolves within the temp root.
-4. **Informational rows:** `~/Library/Caches` is review-only and Docker volumes are protected. These rows are static; they are not sized or included in apply.
-
-The storage plan prints selected target count and known reclaimable bytes. Unknown-size cache and Docker commands contribute zero to that estimate. The final report gives applied, failed, and skipped counts and target names; it does not measure actual bytes reclaimed. A persisted-project candidate is counted as applied if its clean service returns, even if that service deleted zero items and returned warnings. Command targets are executed through structured `Bun.spawn` argument arrays. The selected Docker operation is a broad prune, not a per-resource delete.
+Docker and arbitrary `os.tmpdir()` entries remain proposed registry targets and are not selected by this CLI path. The older broad Docker prune, blanket old-temp cleanup, and persisted-project storage service remain in source but are no longer called by `optimise storage`.
 
 ## Startup optimiser
 
@@ -46,36 +44,28 @@ The scan includes review/protected counts internally, but the terminal plan prin
 
 ## Projects and repos optimiser
 
-`src/services/project-optimizer/project-optimizer.ts` traverses the supplied workdir without following symlinks, detects projects from Node/Bun/Deno, Python, Go, Rust, Java, and .NET markers, and finds candidate generated entries directly under each detected project root. The depth limit is fixed to 7 by command registration. Generated, VCS, asset, upload, media, migration, vendor, and virtual-environment directories are skipped during traversal.
+`optimise projects` resolves a real supplied workdir, discovers matching project roots to depth 7, and uses published workdir rules from the registry engine. The current generated targets include SwiftPM `.build`, `node_modules`, Python caches, Rust `target`, and a review-only `htmlcov` report. Published Visual Studio `.vs` state is protected inventory, never a removal action. The scanner does not descend through symlinks or generated/protected directory names. `repos` calls the same handler and does not require `.git`.
 
-Candidates must match the service's generated-name allowlist **and** the shared `src/core/safety/policy.ts` `safe`/`canAutoClean` classification. Examples include `node_modules`, `dist`, `build`, `.next`, coverage and cache directories, `__pycache__`, `.gradle`, Rust/Java `target`, .NET `obj`, Go/.NET `bin`, and generated coverage/profiling files. `.venv`, reports, release outputs, source, `.git`, environment files, databases, media, assets, and migrations are not selected. The supplied workdir and detected project roots are never cleanup candidates.
-
-Before each deletion, apply rechecks the path's presence, symlink status, type, generated-name allowlist, and safety classification, and rejects a lexical path escape from the project root. It reports skips and failures separately. Reclaimed bytes are **estimated from scan-time candidate sizes**, not measured after apply. The verifier does not prove the live real path remains under the original project root if an ancestor changes to a symlink between planning and deletion.
+Generated-path removal requires a code-approved selector and matching project marker. Before apply, the engine re-probes identity, verifies path scope and symlinks, checks ownership and activity, and audits attempts and outcomes. `-f` applies only safe suggestions; reports and protected inventory cannot be force-selected. Known reclaimed bytes come from applied path targets; owner-tool actions may not have a size estimate.
 
 ## Code map and data flow
 
-| Area | Responsibility and reachability |
+| Area | Responsibility |
 |---|---|
-| `src/cli/` | Commander registration, terminal plan/prompt/report formatting, command results, and audit calls. This is the active public surface. |
-| `src/services/optimize/`, `startup-optimizer/`, `project-optimizer/` | Active storage, macOS startup, and workdir-generated-file workflows. |
-| `src/core/safety/` | Shared project path classifier: `safe`, `caution`, `protected`, or `unknown`; active project optimiser and retained scan/clean services use it. |
-| `src/db/` and `src/config/paths.ts` | Bun SQLite client, migration, repositories, and default `~/.kundol/kundol.db` path. Active actions read project rows and write action rows. |
-| `src/services/audit/` | Best-effort per-process session log under `~/.kundol/sessions/`. |
-| `src/core/discovery/`, `workers/`, `registry/`, `analysis/`, `recommendations/`, `projects/`; `src/services/indexing/`, `scan-clean/`, `archive/`; remaining `src/config/` | Retained code from the earlier project-discovery CLI. These modules have tests and internal entrypoints, but their old commands are no longer registered. Storage apply still reaches the persisted-scan clean service for selected registry projects. |
-| `src/platform/`, `src/shared/` | Home/clock/filesystem helpers, output abstraction, and exit-code constants. |
-| `src/core/optimisation-registry/`, `registry/` | Internal JSON rule schema and catalogue validation; no public scan or apply route. |
-| `scripts/seed-demo-workspace.ts`, `scripts/seed-docker-sandbox.ts` | Fake Node/Python/Go workspace fixtures and a disposable container demo with fake Docker/startup resources. |
+| `src/cli/` | Commander routes, plans, selection prompts, reports, GitHub links, and audit calls. |
+| `registry/optimisations.json`, `src/core/optimisation-registry/` | Bundled rule definitions and strict schema validation. |
+| `src/services/optimisation-registry/` | Active user-cache and project-rule probe, review, live validation, execution, and audit engine. |
+| `src/services/startup-optimizer/` | Active macOS LaunchAgent and Login Item scan; eligible user-agent disablement. |
+| `src/db/`, `src/services/audit/` | SQLite actions and per-process session records under `~/.kundol/`. |
+| `src/services/optimize/`, `project-optimizer/`, `indexing/`, `scan-clean/`, `archive/` and old project registry modules | Retained earlier services without public command registration in the current flow. |
+| `src/shared/`, `src/platform/` | Output, exit codes, filesystem, clock, and home helpers. |
 
-SQLite migration v1 creates settings, workspaces, excluded paths, projects, tags, project scans/items, actions, and schema migration tables. The active CLI creates/migrates the DB when it reads projects or records actions. It logs a durable `*_SCAN` action after a successful scan, `*_CANCELLED` on cancellation, and `*_OPTIMISE` after apply; session logs also record the start of scan and apply. Action records default to status `completed`, including cancellation and partial-failure summaries. Session log writes silently fail on filesystem error; SQLite action writes are part of the action path.
+SQLite migration v1 still creates settings, workspaces, project metadata, scans/items, actions, and migration tables. Active optimise runs record scan, cancellation, apply, and registry-target audit rows. Session logs are best effort; SQLite action writes are part of the command path. The old project index/scan/clean modules have no public routes and the current CLI does not create archives.
 
-The discovery/indexing service can still populate project metadata and lifecycle status (`NEW`, `ACTIVE`, `PAUSED`, `STALE`, `ARCHIVED`, `DELETED`) through internal calls. Scan/clean services can persist safe scan items, reclassify them on apply, and optionally create a `.tar.gz` archive if explicitly passed an archive root. Neither service has a public command today, and storage apply does not pass an archive root.
+## Present limits
 
-## Present limits and documentation precedence
-
-This CLI does not implement Docker resource inventory, modern background-item APIs, System Settings Login Item mutation, CPU/memory/battery monitoring, application-cache cleanup, iOS/Android project analysis, or a running daemon. Use this page, [commands.md](commands.md), and CLI registration for implemented behavior; design pages mark future work explicitly.
-
-Two current safety-policy gaps deserve attention when changing the optimizer: storage auto-selects **all** seven-day-old top-level entries in `os.tmpdir()` rather than only tool-owned temp data, and Docker apply uses broad system prune without a resource-by-resource plan. This differs from the narrower guidance in the [agent guide](agents.md) and historical storage/Docker docs. Startup live verification does not re-read the plist label or loaded state, and project apply does not enforce realpath containment after an ancestor swap. These are implementation facts, not assurances that those actions are safe for every machine.
+The public CLI does not implement Docker resource inventory or cleanup, arbitrary temp cleanup, modern background-item APIs, System Settings Login Item mutation, CPU/memory/battery monitoring, a dashboard, or a daemon. Startup apply does not re-read a plist's label after scanning. The registry CLI's seven-day no-change check finds recent content changes but cannot prove that no process has an old file open. Owner-tool cache actions can cause re-downloads; known-byte reports do not measure command-side savings. Use [usage](usage.md), [commands](commands.md), and CLI registration for current behavior; older design and learning notes record earlier implementations.
 
 ## Development and verification
 
-Run `bun install` once, `bun run dev -- --help` to inspect the CLI, and `bun run check` for tool versions, lint, TypeScript, registry validation, Bun tests, bundling, and CLI boot smoke. Husky checks code before commit and boots the CLI under a temporary home before push. Tests cover command registration, candidate classification, live type changes, injected startup actions, storage selection/failures, and retained DB/services. They do not exercise real Docker prune or full interactive confirmations. Use the [Docker sandbox](demo/docker-sandbox.md) for a disposable first run; it mocks Docker and macOS startup and mounts no host files or Docker socket.
+Run `bun install --frozen-lockfile`, `bun run dev -- --help`, and `bun run check` for tool versions, lint, TypeScript, registry validation, Bun tests, bundling, and CLI smoke checks. Tests use disposable homes/workdirs and injected owner runners rather than applying to a real machine. The [Docker sandbox](demo/docker-sandbox.md) supplies disposable project and startup fixtures without mounting host files or a Docker socket.

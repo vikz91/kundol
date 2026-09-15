@@ -11,6 +11,7 @@ const pr = {
   mergedAt: "2026-09-15T04:30:00Z",
   mergeCommitSha: "a".repeat(40),
   labels: ["fix"],
+  authorLogin: "dev-contributor",
 };
 
 describe("merged PR changelog", () => {
@@ -24,15 +25,18 @@ describe("merged PR changelog", () => {
         merged_at: pr.mergedAt,
         merge_commit_sha: pr.mergeCommitSha,
         labels: [{ name: "Fix" }],
+        user: { login: pr.authorLogin },
       },
     };
     expect(parseMergedPullRequest(event)).toEqual(pr);
     expect(() => parseMergedPullRequest({ pull_request: { ...event.pull_request, merged: false } })).toThrow("not merged");
+    expect(() => parseMergedPullRequest({ pull_request: { ...event.pull_request, user: null } })).toThrow("author login");
   });
 
   test("classifies release notes from labels", () => {
     expect(categoryFor(["breaking", "fix"])).toBe("Breaking");
     expect(categoryFor(["enhancement"])).toBe("Added");
+    expect(categoryFor(["registry", "enhancement"])).toBe("Registry");
     expect(categoryFor(["docs"])).toBe("Documentation");
     expect(categoryFor([])).toBe("Changed");
   });
@@ -40,8 +44,8 @@ describe("merged PR changelog", () => {
   test("adds a release-ready version section once", () => {
     const initial = "# Changelog\n\nChanges are recorded after merged PRs.\n";
     const changed = updateChangelog(initial, "0.1.1", pr);
-    expect(changed).toContain("## v0.1.1 (2026-09-15)\n\n### Fixed\n- Fix startup scan ([#42](https://github.com/example/kundol/pull/42)) <!-- pr:42 -->");
-    expect(releaseNotesForVersion(changed, "0.1.1")).toBe("### Fixed\n- Fix startup scan ([#42](https://github.com/example/kundol/pull/42)) <!-- pr:42 -->\n");
+    expect(changed).toContain("## v0.1.1 (2026-09-15)\n\n### Fixed\n- Fix startup scan ([#42](https://github.com/example/kundol/pull/42)) — [@dev-contributor](https://github.com/dev-contributor) <!-- pr:42 -->");
+    expect(releaseNotesForVersion(changed, "0.1.1")).toBe("### Fixed\n- Fix startup scan ([#42](https://github.com/example/kundol/pull/42)) — [@dev-contributor](https://github.com/dev-contributor) <!-- pr:42 -->\n");
     expect(updateChangelog(changed, "0.1.1", pr)).toBe(changed);
   });
 
@@ -51,6 +55,12 @@ describe("merged PR changelog", () => {
     expect(second.indexOf("## v0.2.0")).toBeLessThan(second.indexOf("## v0.1.1"));
     expect(releaseNotesForVersion(second, "0.2.0")).toContain("Add \\<cache\\> \\[mode\\] for projects");
     expect(releaseNotesForVersion(second, "0.1.1")).not.toContain("#43");
+  });
+
+  test("credits the PR author, including bracketed bot logins, without treating the merger as author", () => {
+    const changed = updateChangelog("# Changelog\n", "0.1.1", { ...pr, authorLogin: "dependabot[bot]", labels: ["registry"] });
+    expect(changed).toContain("### Registry");
+    expect(changed).toContain("[@dependabot\\[bot\\]](https://github.com/dependabot%5Bbot%5D)");
   });
 
   test("adds another PR to the existing version section without duplicating headings", () => {

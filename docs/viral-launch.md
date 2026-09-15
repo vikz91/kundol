@@ -14,7 +14,7 @@ For kundol, show a plan for generated files in a chosen workdir, protected proje
 
 ## Low-cost launch loop
 
-1. Before launch, verify a fresh install and the Docker trial, prepare one readable terminal recording, and publish the [current safety limits](context.md#present-limits-and-documentation-precedence).
+1. Before launch, verify a fresh install and the Docker trial, prepare one readable terminal recording, and publish the [current safety limits](context.md#present-limits).
 2. On launch day, send users to the GitHub README and answer install/safety questions promptly. Use community posts where the discussion fits; do not ask for artificial votes.
 3. Over the following weeks, turn recurring questions into concise docs and small tests or fixtures. Reuse the same genuine command demo as a README example, short clip, and technical note.
 
@@ -22,6 +22,6 @@ Useful contributor requests are missing runtime markers, generated-file candidat
 
 ## Copy boundary
 
-A truthful one-liner is: “kundol plans storage and generated-project cleanup from your terminal and asks before applying it.” Startup disablement applies only to eligible macOS user LaunchAgents; `-f` skips the prompt. Project source and data are excluded from automatic project cleanup, Docker volumes are excluded from storage prune, and [other storage limits](context.md#storage-optimiser) remain material.
+A truthful one-liner is: “kundol plans storage and generated-project cleanup from your terminal and asks before applying it.” Startup disablement applies only to eligible macOS user LaunchAgents; `-f` skips the prompt. Project source and data are excluded from automatic project cleanup. Published storage rules currently cover owner-tool caches; Docker resource cleanup remains a proposal. [Other current limits](context.md#present-limits) remain material.
 
 Show safety through the plan and tests rather than claiming the CLI can never delete something a user values. Keep any cloud, team, or monitoring pitch separate from the local tool until those capabilities exist.
