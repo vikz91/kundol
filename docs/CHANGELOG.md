@@ -4,6 +4,9 @@ Merged pull requests to `main` are recorded here by the [changelog workflow](../
 
 ## v0.4.0 (2026-09-15)
 
+### Registry
+- Publish guarded project artifact optimisation rules ([#6](https://github.com/vikz91/kundol/pull/6)) — [@vikz91](https://github.com/vikz91) <!-- pr:6 -->
+
 ### Changed
 - Remove legacy CLI and harden registry cleanup ([#5](https://github.com/vikz91/kundol/pull/5)) — [@vikz91](https://github.com/vikz91) <!-- pr:5 -->
 
