@@ -4,6 +4,9 @@ Merged pull requests to `main` are recorded here by the [changelog workflow](../
 
 ## v0.3.0 (2026-09-15)
 
+### Changed
+- Fix release metadata download before checkout ([#2](https://github.com/vikz91/kundol/pull/2)) — [@vikz91](https://github.com/vikz91) <!-- pr:2 -->
+
 ### Registry
 - feat: new registry engine ([#3](https://github.com/vikz91/kundol/pull/3)) — [@vikz91](https://github.com/vikz91) <!-- pr:3 -->
 
