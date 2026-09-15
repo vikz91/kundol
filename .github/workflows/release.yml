@@ -41,7 +41,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh run download "${{ github.event.workflow_run.id }}" -n release-metadata -D "$RUNNER_TEMP/kundol-release"
+          gh run download "${{ github.event.workflow_run.id }}" --repo "$GITHUB_REPOSITORY" -n release-metadata -D "$RUNNER_TEMP/kundol-release"
           bun -e '
             import { appendFileSync, writeFileSync } from "node:fs";
             const data = JSON.parse(await Bun.file(process.argv[1]).text());

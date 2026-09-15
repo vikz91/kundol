@@ -1,7 +1,7 @@
 # kundol Project Plan
 
 Created: 2026-06-13 07:18:52 IST  
-Last updated: 2026-09-15 13:25:51 IST
+Last updated: 2026-09-15 13:42:03 IST
 Project codename: kundol  
 Product concept name from source context: DevShelf  
 
@@ -151,6 +151,7 @@ The pasted context originally named the product `DevShelf`; the MVP now uses `ku
 | KUN-097 | Documentation | Explain registry requests and proposed-to-published rule gates in the contribution guide. | don | Codex | 2026-09-15 12:36:00 IST | 2026-09-15 12:36:00 IST | 2026-09-15 12:37:28 IST | KUN-093, KUN-094 | Added a request/claim sequence and a per-phase evidence/availability table; clarified that merged catalogue proposals remain inactive until CLI, integration, and handler gates are met. Local links and scoped diff whitespace passed. |
 | KUN-098 | Registry CLI | Route storage and project/repo optimisation through published registry rules, typed review selection, and per-target audit without broad legacy cleanup. | don | Codex | 2026-09-15 12:44:39 IST | 2026-09-15 12:44:39 IST | 2026-09-15 13:12:13 IST | KUN-094 | Wired both CLI paths to the bundled engine, published 12 guarded rules, discovered project roots from JSON markers, added safe/explicit/protected review and per-target audits, removed broad Docker/temp legacy routing, and fixed the disposable image registry copy. Action results survive later audit failure. `bun run check` passed (104 tests); Docker build and isolated tools/project/storage smoke passed. Startup stays separate. |
 | KUN-099 | Release Workflow | Resolve PR #3 changelog conflict with the new merged-PR entry on `main`. | don | Codex | 2026-09-15 13:23:58 IST | 2026-09-15 13:23:58 IST | 2026-09-15 13:25:51 IST | KUN-098 | Merged current `main`, kept PR #1's v0.2.2 entry, verified and added its author credit, and kept branch wording. `bun run check` passed (104 tests); simulated v0.3.0 PR #3 append preserved both entries. Pushed the resolution to PR #3. |
+| KUN-100 | Release Workflow | Integrate the existing PR #2 metadata download fix with current `main` and verify it against the failed release artifact. | don | Codex | 2026-09-15 13:40:10 IST | 2026-09-15 13:40:10 IST | 2026-09-15 13:42:03 IST | KUN-095, KUN-099 | Merged current `main` into PR #2 while retaining its explicit `--repo` fix and current tag safeguards. Downloaded and validated PR #3 metadata from `/tmp`; `bun run check` passed (104 tests), universal arm64/x64 build passed, and its published registry command ran. Pushed the branch for review. |
 
 ## Future Backlog
 

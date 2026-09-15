@@ -1,7 +1,7 @@
 # kundol Learnings
 
 Created: 2026-06-13 07:21:12 IST  
-Last updated: 2026-09-15 13:24:50 IST
+Last updated: 2026-09-15 13:40:10 IST
 
 This file is the chronological learning log for agents working on kundol. Earlier dated entries describe the CLI and registry at those times; use [usage](usage.md) and [context](context.md) for current public behavior.
 Add discoveries, decisions, implementation gotchas, and useful references here as work progresses.
@@ -406,3 +406,8 @@ Add discoveries, decisions, implementation gotchas, and useful references here a
 ### 2026-09-15 13:24:50 IST
 
 - The changelog bot's follow-up commit on `main` can conflict with a feature branch that edits the same changelog introduction. Merge the new version entry and the feature branch's wording together rather than discarding the recorded PR. Existing entries may predate author-credit code, so verify their PR author before adding credit.
+
+### 2026-09-15 13:40:10 IST
+
+- `gh run download` calls repository discovery before checkout and fails with `fatal: not a git repository` in a `workflow_run` runner. Pass `--repo "$GITHUB_REPOSITORY"` explicitly at that step; the existing PR #2 fix downloaded and validated PR #3's release metadata from `/tmp` without a Git checkout.
+- An open fix PR does not change the workflow used by `main`. After a new feature PR merged, bring current `main` into the fix branch and review the final diff so the pending fix retains current tag and release safeguards.
