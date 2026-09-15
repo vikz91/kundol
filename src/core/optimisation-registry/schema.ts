@@ -11,12 +11,20 @@ const toolCacheSelector = z.strictObject({
   kind: z.literal("tool_cache"),
   pathCommand: command,
 });
+const targetKind = z.enum(["file", "directory", "either"]);
 const generatedPathSelector = z.strictObject({
   kind: z.literal("generated_path"),
   names: z.array(z.string().min(1).max(50).regex(/^[^/\\]+$/).refine((name) => name !== "." && name !== "..", "path traversal is not allowed")).min(1),
   markers: z.array(z.string().min(1).max(80).regex(/^[^/\\]+$/)).min(1),
+  targetKind: targetKind.optional(),
 });
-const selector = z.discriminatedUnion("kind", [adapterSelector, toolCacheSelector, generatedPathSelector]);
+const generatedSuffixSelector = z.strictObject({
+  kind: z.literal("generated_suffix"),
+  suffixes: z.array(z.string().min(2).max(30).regex(/^\.[a-z0-9._-]+$/)).min(1),
+  markers: z.array(z.string().min(1).max(80).regex(/^[^/\\]+$/)).min(1),
+  targetKind,
+});
+const selector = z.discriminatedUnion("kind", [adapterSelector, toolCacheSelector, generatedPathSelector, generatedSuffixSelector]);
 const action = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("adapter"), adapterId: identifier }),
   z.strictObject({ kind: z.literal("command"), argv: command.shape.argv }),
@@ -30,6 +38,7 @@ const review = z.strictObject({
 });
 const rule = z.strictObject({
   id: identifier,
+  status: z.enum(["proposed", "wip", "beta", "published"]),
   categoryId: identifier,
   label: z.string().min(1).max(60),
   description: z.string().min(1).max(100),
@@ -51,7 +60,7 @@ function unsafeCommand(argv: string[]): boolean {
 }
 
 export const optimisationRegistrySchema = z.strictObject({
-  schemaVersion: z.literal(1),
+  schemaVersion: z.literal(2),
   integration: z.literal("catalogue_only"),
   messageTemplates: z.strictObject({
     plan: z.string().min(1),
@@ -88,8 +97,8 @@ export const optimisationRegistrySchema = z.strictObject({
     if (entry.review.tier === "safe" && entry.review.selection !== "suggested") {
       context.addIssue({ code: "custom", path: [...path, "review"], message: "safe rules must be suggested" });
     }
-    if (entry.action.kind === "remove_generated" && (entry.scope !== "workdir" || entry.selector.kind !== "generated_path")) {
-      context.addIssue({ code: "custom", path: [...path, "action"], message: "generated removal requires a workdir generated-path selector" });
+    if (entry.action.kind === "remove_generated" && (entry.scope !== "workdir" || !["generated_path", "generated_suffix"].includes(entry.selector.kind))) {
+      context.addIssue({ code: "custom", path: [...path, "action"], message: "generated removal requires a workdir generated selector" });
     }
     if (entry.review.tier === "safe" && entry.action.kind === "remove_generated" &&
       !["target_exists", "path_in_scope", "not_symlink", "project_marker", "target_not_active"].every((validator) => entry.validators.includes(validator))) {

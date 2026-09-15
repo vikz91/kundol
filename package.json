@@ -1,6 +1,6 @@
 {
   "name": "kundol",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "A Bun + TypeScript CLI for optimising developer storage and project build artifacts.",
   "type": "module",
   "private": true,
