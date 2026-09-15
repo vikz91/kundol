@@ -1,7 +1,7 @@
 # kundol Learnings
 
 Created: 2026-06-13 07:21:12 IST  
-Last updated: 2026-09-15 13:07:32 IST
+Last updated: 2026-09-15 13:24:50 IST
 
 This file is the chronological learning log for agents working on kundol. Earlier dated entries describe the CLI and registry at those times; use [usage](usage.md) and [context](context.md) for current public behavior.
 Add discoveries, decisions, implementation gotchas, and useful references here as work progresses.
@@ -402,3 +402,7 @@ Add discoveries, decisions, implementation gotchas, and useful references here a
 - The source-run Docker demo must copy `registry/optimisations.json` along with `src/`. Adding `COPY registry` initially failed because `.dockerignore` excluded it; update both files when a newly imported runtime asset is needed in that image.
 - The rebuilt network-isolated demo lists 12 published rules and applies three aged project targets. Its base image lacks npm, Python, uv, Go, and pnpm, so storage reports unavailable owner tools and performs no action. `bun run check` passed 103 tests plus bundle and CLI smoke after integration.
 - A run-level SQLite summary is written after apply and can fail after the owner action succeeds. Keep the final report and return code tied to the actual action result, and surface both per-target outcome and run-level audit failures as warnings. A disposable test replaces its temporary DB file after the simulated owner action to verify this behavior.
+
+### 2026-09-15 13:24:50 IST
+
+- The changelog bot's follow-up commit on `main` can conflict with a feature branch that edits the same changelog introduction. Merge the new version entry and the feature branch's wording together rather than discarding the recorded PR. Existing entries may predate author-credit code, so verify their PR author before adding credit.
