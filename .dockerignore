@@ -3,7 +3,6 @@
 .husky
 .codex
 node_modules
-tests
 docs
 assets
 coverage

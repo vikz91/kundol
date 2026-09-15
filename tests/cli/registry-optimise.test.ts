@@ -54,6 +54,76 @@ async function ageTarget(target: string, children: readonly string[] = []) {
 }
 
 describe("registry-backed optimise CLI", () => {
+  test("new published project rules probe disposable targets and keep review outputs out of force cleanup", async () => {
+    const f = await fixture();
+    const node = path.join(f.workdir, "node");
+    const python = path.join(f.workdir, "python");
+    const go = path.join(f.workdir, "go");
+    const dotnet = path.join(f.workdir, "dotnet");
+    const llvm = path.join(f.workdir, "llvm");
+    const rust = path.join(f.workdir, "rust");
+    for (const project of [node, python, go, dotnet, llvm, rust]) await mkdir(project);
+    await writeFile(path.join(node, "package.json"), "{}");
+    await writeFile(path.join(python, "pyproject.toml"), "{}");
+    await writeFile(path.join(go, "go.mod"), "module demo");
+    await writeFile(path.join(dotnet, "demo.sln"), "");
+    await writeFile(path.join(llvm, "Makefile"), "");
+    await writeFile(path.join(rust, "Cargo.toml"), "");
+
+    const parcel = path.join(node, ".parcel-cache");
+    const eslint = path.join(node, ".eslintcache");
+    const eggInfo = path.join(python, "demo.egg-info");
+    const coverage = path.join(go, "coverage.out");
+    const testBinary = path.join(go, "demo.test");
+    const testResults = path.join(dotnet, "TestResults");
+    const profraw = path.join(llvm, "demo.profraw");
+    const profdata = path.join(llvm, "demo.profdata");
+    const tarpaulin = path.join(rust, "tarpaulin-report.html");
+    await mkdir(parcel);
+    await writeFile(path.join(parcel, "cache.bin"), "generated");
+    await ageTarget(parcel, [path.join(parcel, "cache.bin")]);
+    await writeFile(eslint, "generated");
+    await utimes(eslint, old, old);
+    await mkdir(eggInfo);
+    await writeFile(path.join(eggInfo, "PKG-INFO"), "generated");
+    await ageTarget(eggInfo, [path.join(eggInfo, "PKG-INFO")]);
+    for (const artifact of [coverage, testBinary, profraw, profdata, tarpaulin]) {
+      await writeFile(artifact, "generated");
+      await utimes(artifact, old, old);
+    }
+    await mkdir(testResults);
+    await writeFile(path.join(testResults, "report.trx"), "retained test evidence");
+    await ageTarget(testResults, [path.join(testResults, "report.trx")]);
+
+    const forced = capturedOutput();
+    await createProgram({
+      output: forced.output, homeDir: f.home, databasePath: f.databasePath, registryNow: () => now,
+    }).parseAsync(["optimise", "projects", f.workdir, "-f"], { from: "user" });
+    const plan = forced.lines.join("\n");
+    for (const label of ["Parcel project cache", "ESLint default cache file", "setuptools egg-info metadata",
+      "Go coverage profile", "Go compiled test binary", ".NET TestResults", "LLVM coverage profiles", "cargo-tarpaulin HTML report"]) {
+      expect(plan).toContain(label);
+    }
+    expect(plan).toContain("Safe suggestions: 0");
+    expect(plan).toContain("Cancelled. No project targets were removed.");
+    for (const artifact of [parcel, eslint, eggInfo, coverage, testBinary, testResults, profraw, profdata, tarpaulin]) {
+      expect(await exists(artifact)).toBe(true);
+    }
+
+    const reviewed = capturedOutput();
+    const reviewRuleIds = new Set(["project.parcel.cache", "project.eslint.cache", "project.python.egg_info",
+      "project.go.coverage_profile", "project.go.test_binary",
+      "project.dotnet.test_results", "project.llvm.profiles", "project.rust.tarpaulin_report"]);
+    await createProgram({
+      output: reviewed.output, homeDir: f.home, databasePath: f.databasePath, registryNow: () => now,
+      registrySelect: async (probe) => probe.candidates.filter((candidate) => reviewRuleIds.has(candidate.ruleId)).map((candidate) => candidate.id),
+    }).parseAsync(["optimise", "projects", f.workdir], { from: "user" });
+    expect(reviewed.lines.join("\n")).toContain("Removed/optimised: 9");
+    for (const artifact of [parcel, eslint, eggInfo, coverage, testBinary, testResults, profraw, profdata, tarpaulin]) {
+      expect(await exists(artifact)).toBe(false);
+    }
+  });
+
   test("projects -f plans and applies only published safe generated paths", async () => {
     const f = await fixture();
     const project = path.join(f.workdir, "demo");

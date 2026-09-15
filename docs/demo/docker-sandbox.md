@@ -27,7 +27,7 @@ Each optimiser prints a registry plan first. For projects and repos, `y` selects
 
 | Seeded under `/sandbox` | Demonstrates |
 |---|---|
-| `projects/` | Six fake Node.js, Python, and Go projects with `node_modules`, build/cache output, and protected `.git`, `.env*`, database, upload, and report examples. The published registry markers currently discover four of these roots. |
+| `projects/` | Six fake Node.js, Python, and Go projects with `node_modules`, build/cache output, and protected `.git`, `.env*`, database, upload, and report examples. Published registry markers discover all six roots; Go `coverage.out` is review-only. |
 | `home/.kundol/` | Created by CLI runs for SQLite action records and session logs inside the disposable home. |
 
 The image runs Linux. It tests the registry-driven project cleanup path with disposable generated files; it does not simulate macOS startup changes or mount a Docker socket. The retired broad Docker-prune and temporary-file demos were removed from the sandbox. Any published owner-tool cache actions run only inside the isolated container.
@@ -39,3 +39,10 @@ bun /opt/kundol/scripts/seed-docker-sandbox.ts /sandbox
 ```
 
 Exit and start a new `docker run --rm -it ...` for a fresh copy. See [the local project-only seeder](seed-demo-workspace.md) if you deliberately want host-side fake project files.
+
+For the repository's full checks, use the separate test image. It copies source and tests into the image, runs fixture cleanup only under the container's `/sandbox`, and mounts no host files or Docker socket:
+
+```bash
+docker build -f Dockerfile.test -t kundol-test:local .
+docker run --rm --network none --cap-drop ALL --security-opt no-new-privileges kundol-test:local bun run check
+```

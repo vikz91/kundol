@@ -31,7 +31,7 @@ The current public command direction is CLI-only:
 - Every optimise run probes first, prints a cleanup plan, asks for target selection unless forced, rechecks live targets, executes selected actions, prints a final report, and audits the run.
 - Support only `-f, --force` to select safe, force-eligible targets after the scan/plan step.
 
-The active registry includes 12 published rules for shared package caches and project-generated paths; broader runtime and Docker rules remain proposals until their owner adapters and safety checks are implemented.
+The active registry includes 20 published rules for shared package caches and project-generated paths; broader runtime and Docker rules remain proposals until their owner adapters and safety checks are implemented.
 
 The pasted context originally named the product `DevShelf`; the MVP now uses `kundol` for the repository, CLI binary, and package name.
 
