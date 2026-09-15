@@ -89,7 +89,7 @@ jobs:
 
       - name: Build single universal executable
         if: steps.existing.outputs.exists == 'false'
-        run: bun run scripts/build-release.ts --outfile "$RUNNER_TEMP/kundol-release/kundol-macos-universal"
+        run: bun run build:release --outfile "$RUNNER_TEMP/kundol-release/kundol-macos-universal"
 
       # The changelog workflow_run triggers this job. No human tag push is needed.
       - name: Create or verify tag on the merged source
