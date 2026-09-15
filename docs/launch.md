@@ -1,20 +1,20 @@
 # kundol Launch and Community Guide
 
 Created: 2026-06-13
-Last updated: 2026-09-15 13:07:32 IST
+Last updated: 2026-09-15 14:07:32 IST
 Related tasks: `KUN-001`, `KUN-049`–`KUN-055`, `KUN-092`, `KUN-095`
 
 This is a launch checklist for the **current CLI**. See [commands](commands.md) and [codebase context](context.md) for implemented behavior, [release workflow](release.md) for publishing, and [launch research](viral-launch.md) for the rationale.
 
 ## Positioning and proof
 
-kundol is a macOS-first CLI for developer-machine cache, startup, and generated-project optimisation. `optimise storage|startup|projects|repos` runs plans; `tools available|search|list|request` browses or requests registry tools, and `issue` opens GitHub reporting. `repos` uses the same project handler without Git filtering. See [usage](usage.md).
+kundol is a macOS-first CLI for developer-machine cache and generated-project optimisation. `optimise storage|projects|repos` runs registry plans; `tools available|search|list|request` browses or requests registry tools, and `issue` opens GitHub reporting. `repos` uses the same project handler without Git filtering. See [usage](usage.md).
 
 Lead with a short, real terminal demo: scan a disposable workdir, show the plan, then choose whether to apply. Each run prints a plan before prompting; `-f` skips the prompt after planning. Show protected project files and the resulting audit record. Do not advertise project inventory, dashboards, archive, runtime audits, or a `--dry-run` flag as public features.
 
-For first-time testing, link the [Docker sandbox](demo/docker-sandbox.md). It supplies fake projects, temp entries, Docker resources, and startup items without mounting host projects or the host Docker socket. Explain that Docker startup behavior is simulated; real startup optimisation requires macOS.
+For first-time testing, link the [Docker sandbox](demo/docker-sandbox.md). It supplies fake projects without mounting host projects or the host Docker socket. The project cleanup path runs against disposable generated files.
 
-Safety copy must be specific. Published project rules require approved selectors, markers, live path checks, and safety tiers; protected inventory cannot be removed. The current public storage route does not prune Docker or arbitrary temp entries. [Current limits](context.md#present-limits) include owner-tool re-download costs and startup verification gaps, so avoid blanket safety claims.
+Safety copy must be specific. Published project rules require approved selectors, markers, live path checks, and safety tiers; protected inventory cannot be removed. The current public storage route does not prune Docker or arbitrary temp entries. [Current limits](context.md#present-limits) include owner-tool re-download costs, so avoid blanket safety claims.
 
 ## Repository readiness
 

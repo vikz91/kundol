@@ -1,14 +1,14 @@
 # kundol Brand
 
 Created: 2026-06-15 21:37:29 IST  
-Last updated: 2026-09-15 12:03:56 IST
+Last updated: 2026-09-15 14:07:32 IST
 Related tasks: `KUN-055`, `KUN-056`, `KUN-072`, `KUN-081`, `KUN-086`, `KUN-091`
 
 ## GitHub description
 
-> macOS-first CLI for scanning and optimising developer-machine storage, user startup items, and generated project files.
+> macOS-first CLI for scanning and optimising developer-machine storage and generated project files.
 
-This copy is set on the [GitHub repository](https://github.com/vikz91/kundol) and was verified on 2026-09-15.
+The earlier wording included startup items and was verified on the [GitHub repository](https://github.com/vikz91/kundol) on 2026-09-15. Update the repository description to this current storage-focused copy when editing GitHub metadata.
 
 ## Logo
 
@@ -32,4 +32,4 @@ Intended primary colors:
 
 - Use the icon alone for small surfaces and pair it with the lowercase `kundol` name in text.
 - Preserve its square crop, transparent outer area, and interior padding.
-- Keep copy anchored to the implemented storage, startup, projects, and repos commands.
+- Keep copy anchored to the implemented storage, projects, and repos commands.

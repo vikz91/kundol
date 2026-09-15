@@ -1,12 +1,13 @@
 # Optimisation Registry
 
 Created: 2026-09-15 11:06:57 IST  
-Related tasks: `KUN-083`, `KUN-090`, `KUN-093`, `KUN-094`, `KUN-098`
+Last updated: 2026-09-15 14:07:32 IST
+Related tasks: `KUN-083`, `KUN-090`, `KUN-093`, `KUN-094`, `KUN-098`, `KUN-101`
 Status: registry-backed storage and project/repo CLI execution for published rules.
 
 [`optimisations.json`](../registry/optimisations.json) is the single source of truth for developer-machine storage optimisation definitions. It covers the 13 categories researched in [`developer-cleanup-targets.md`](developer-cleanup-targets.md), plus targeted gaps found in the existing storage code. A rule has a stable ID, lifecycle status, display copy, scope, target selector, optional probe commands, review policy, live validators, action descriptor, and source references. Repeated targets have one canonical rule: SwiftPM `.build` belongs to project-generated files, while Maven and Gradle shared stores belong to JVM.
 
-The live registry is `schemaVersion: 2` and `integration: engine_ready`. `kundol optimise storage|projects|repos` loads it through the engine under [`src/services/optimisation-registry`](../src/services/optimisation-registry). The 12 published rules can be probed; 83 proposals stay inactive. The engine identifies precise targets, presents identity, size, evidence, sources, action, and safety tier for review, then re-identifies and validates each selected live target before acting and auditing. It deduplicates overlapping physical paths and resource IDs, keeping the stricter safety tier. Startup remains on its separate optimizer.
+The live registry is `schemaVersion: 2` and `integration: engine_ready`. `kundol optimise storage|projects|repos` loads it through the engine under [`src/services/optimisation-registry`](../src/services/optimisation-registry). The 12 published rules can be probed; 83 proposals stay inactive. The engine identifies precise targets, presents identity, size, evidence, sources, action, and safety tier for review, then re-identifies and validates each selected live target before acting and auditing. It deduplicates overlapping physical paths and resource IDs, keeping the stricter safety tier. These are the only public cleanup routes.
 
 | JSON field | Meaning |
 |---|---|

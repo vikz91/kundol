@@ -5,7 +5,6 @@ import { toIsoDateTime } from "../../platform/clock";
 
 export interface ActionLogEntry {
   id: string;
-  projectId: string | null;
   actionType: string;
   status: string;
   details: Record<string, unknown>;
@@ -14,7 +13,6 @@ export interface ActionLogEntry {
 
 interface ActionRow {
   id: string;
-  project_id: string | null;
   action_type: string;
   status: string;
   details_json: string;
@@ -28,48 +26,34 @@ export class ActionRepository {
   ) {}
 
   record(input: {
-    projectId?: string | null;
     actionType: string;
     status?: string;
     details?: Record<string, unknown>;
-  }): ActionLogEntry {
-    const id = randomUUID();
+  }): void {
     this.db
       .query(
-        `INSERT INTO actions (id, project_id, action_type, status, details_json, created_at)
-         VALUES ($id, $projectId, $actionType, $status, $detailsJson, $createdAt)`,
+        `INSERT INTO actions (id, action_type, status, details_json, created_at)
+         VALUES ($id, $actionType, $status, $detailsJson, $createdAt)`,
       )
       .run({
-        $id: id,
-        $projectId: input.projectId ?? null,
+        $id: randomUUID(),
         $actionType: input.actionType,
         $status: input.status ?? "completed",
         $detailsJson: JSON.stringify(input.details ?? {}),
         $createdAt: toIsoDateTime(this.clock.now()),
       });
-    return this.findById(id)!;
-  }
-
-  findById(id: string): ActionLogEntry | null {
-    const row = this.db.query<ActionRow, [string]>("SELECT * FROM actions WHERE id = ?").get(id);
-    return row ? mapAction(row) : null;
   }
 
   list(limit = 100): ActionLogEntry[] {
     return this.db
-      .query<ActionRow, [number]>("SELECT * FROM actions ORDER BY created_at DESC LIMIT ?")
+      .query<ActionRow, [number]>("SELECT id, action_type, status, details_json, created_at FROM actions ORDER BY created_at DESC LIMIT ?")
       .all(limit)
-      .map(mapAction);
+      .map((row) => ({
+        id: row.id,
+        actionType: row.action_type,
+        status: row.status,
+        details: JSON.parse(row.details_json) as Record<string, unknown>,
+        createdAt: row.created_at,
+      }));
   }
-}
-
-function mapAction(row: ActionRow): ActionLogEntry {
-  return {
-    id: row.id,
-    projectId: row.project_id,
-    actionType: row.action_type,
-    status: row.status,
-    details: JSON.parse(row.details_json) as Record<string, unknown>,
-    createdAt: row.created_at,
-  };
 }

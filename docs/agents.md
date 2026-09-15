@@ -1,9 +1,9 @@
 # kundol Agent Guide
 
 Created: 2026-06-13 07:21:12 IST
-Last updated: 2026-09-15 13:07:32 IST
+Last updated: 2026-09-15 14:07:32 IST
 
-kundol is a Bun + TypeScript macOS-first CLI for storage, startup, generated-project-file optimisation, and catalogue discovery. [Usage](usage.md) explains first use; [context](context.md) maps the implementation; [commands](commands.md) defines the public CLI. The old TUI and project-discovery commands are not public.
+kundol is a Bun + TypeScript macOS-first CLI for storage, generated-project-file optimisation, and catalogue discovery. [Usage](usage.md) explains first use; [context](context.md) maps the implementation; [commands](commands.md) defines the public CLI. The old TUI and project-discovery commands are not public.
 
 ## Project documents
 
@@ -33,9 +33,9 @@ Allowed statuses are `todo`, `in progress`, `don`, and `cancelled`. Use `don` in
 
 ## Current public behavior
 
-- Bare `kundol` prints a welcome banner. `optimise storage|startup|projects|repos` runs plans; `tools available|search|list|request` browses or requests catalogue entries; `issue` opens GitHub's chooser.
-- Every optimise run scans and prints a plan. Storage/projects/repos accept `y` for safe suggestions or displayed numbers for explicit review; startup selects eligible user LaunchAgent numbers. `-f` selects only safe, force-eligible targets after planning. There is no public `--dry-run`, `--apply`, `--json`, or `--max-depth` workflow flag.
-- Storage and projects/repo cleanup use published registry rules; startup retains its own service. `repos` uses the same project handler without Git filtering. Older indexing, scan/clean, project-registry, and archive modules have no public commands.
+- Bare `kundol` prints a welcome banner. `optimise storage|projects|repos` runs registry plans; `tools available|search|list|request` browses or requests catalogue entries; `issue` opens GitHub's chooser.
+- Every optimise run probes and prints a plan. Storage/projects/repos accept `y` for safe suggestions or displayed numbers for explicit review. `-f` selects only safe, force-eligible targets after planning. There is no public `--dry-run`, `--apply`, `--json`, or `--max-depth` workflow flag.
+- All cleanup routes use published registry rules. `repos` uses the same project handler without Git filtering. Earlier indexing, scan/clean, project-registry, archive, storage, and startup modules have been retired.
 - SQLite actions and session logs live under `$HOME/.kundol`. Do not revive removed TUI, compact/archive, daemon, or Docker volume purge scope without a user request or new plan task.
 
 ## Collaboration roster
@@ -45,8 +45,8 @@ Use stable names in task ownership and prompts. Give workers disjoint files, tel
 | Agent | Focus and default scope |
 |---|---|
 | Aarav Rao | CLI architecture, routing, option/output/exit parity; `src/cli/**`, service integration, CLI tests, README commands. |
-| Meera Iyer | SQLite, safety classification, scan/clean guardrails; `src/db/**`, `src/core/safety/**`, `src/core/analysis/**`, `src/services/scan-clean/**`, related tests. |
-| Kabir Menon | macOS/Linux, process and filesystem behavior, Docker, temp/cache/archive actions; `src/platform/**`, system/optimise services, related docs/tests. |
+| Meera Iyer | SQLite action persistence and registry safety guardrails; `src/db/**`, registry engine policy, related tests. |
+| Kabir Menon | macOS/Linux, process and filesystem behavior, Docker and cache resource policy; `src/platform/**`, registry engine process execution, related docs/tests. |
 | Isha Nair | Architecture and flow exploration; concise path/line findings, no edits unless assigned a write scope. |
 | Rohan Das | CLI edge cases, failure and parity exploration; risk-ordered findings and reproduction commands. |
 | Neha Sharma | Regression tests and smoke checks; `tests/**` and disposable fixtures. |
@@ -59,8 +59,8 @@ The main agent owns integration. Delegate bounded exploration, implementation, o
 
 - Use Bun, ESM, strict TypeScript, `bun test`, and Bun SQLite unless there is a clear reason otherwise. Keep Commander handlers thin; core services must not depend on CLI presentation. Use typed results and injected filesystem, clock, process runner, and DB paths where useful.
 - Prefer structured process arguments over shell strings. Keep destructive filesystem actions behind services, with scan-plan-confirm (or `-f`), applicable live checks, and action audit. Never make a hidden network call during a normal scan.
-- Never automatically remove project roots, source, `.git`, `.env*`, databases, uploads, media, assets, or migrations. Generated `node_modules`, build output, and caches may be candidates only after safety classification and live revalidation. Reject path escapes, symlinks, missing or protected items, and stale unsafe scan rows.
-- Docker resources, unattributed temp entries, and broad user Library caches are not active registry cleanup rules. The retained old storage service still contains broad temp and Docker prune code, but the public CLI no longer calls it. Published generated-path and owner-cache rules require precise path and owner checks; inspect [context.md](context.md) before changing those workflows.
+- Never automatically remove project roots, source, `.git`, `.env*`, databases, uploads, media, assets, or migrations. Generated `node_modules`, build output, and caches may be candidates only after registry safety classification and live revalidation. Reject path escapes, symlinks, missing or protected items, and stale unsafe plan candidates.
+- Docker resources, unattributed temp entries, and broad user Library caches are not active registry cleanup rules. Published generated-path and owner-cache rules require precise path and owner checks; inspect [context.md](context.md) before changing those workflows.
 - For new data-bearing cleanup categories such as volumes, databases, reports, media, or source after archive, require a scoped plan and dedicated explicit selection. Do not run destructive tests or smoke commands against a real home or project.
 
 ## Verification and knowledge

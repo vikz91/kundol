@@ -1,6 +1,7 @@
 # Storage Optimiser
 
 Created: 2026-06-15 21:51:27 IST
+Last updated: 2026-09-15 14:07:32 IST
 Related tasks: `KUN-073`, `KUN-F013`, `KUN-080`, `KUN-092`
 
 ## Shipped workflow
@@ -9,7 +10,7 @@ Related tasks: `KUN-073`, `KUN-F013`, `KUN-080`, `KUN-092`
 
 Current published owner-tool cache rules cover npm verification, pip purge, uv prune, Go build/test and module caches, and pnpm store prune. The rule's tier determines whether it is a safe suggestion or explicit review. The engine uses code-approved structured command arguments, repeats target and activity checks before apply, and reports applied, failed, and skipped counts. Plans show known target footprint; owner-tool command savings may remain unknown.
 
-The older `src/services/optimize/` path still exists in source, but the public storage command no longer calls its broad Docker prune, blanket seven-day-old `os.tmpdir()` selection, or persisted-project cleanup. Docker and temp targets remain proposed or protected registry entries, not current storage actions.
+The older `src/services/optimize/` path, which contained broad Docker prune, blanket seven-day-old `os.tmpdir()` selection, and persisted-project cleanup, has been retired. Docker and temp targets remain proposed or protected registry entries, not current storage actions.
 
 ## Future resource work
 

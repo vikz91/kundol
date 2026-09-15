@@ -1,6 +1,7 @@
 # Usage
 
 Created: 2026-09-15 13:07:32 IST
+Last updated: 2026-09-15 14:07:32 IST
 
 Run `kundol --help` to see the installed CLI. From a source checkout, install dependencies and prefix the same commands with `bun run dev --`:
 
@@ -39,12 +40,11 @@ kundol issue
 
 ```bash
 kundol optimise storage
-kundol optimise startup
 kundol optimise projects ~/Projects
 kundol optimise repos ~/Projects
 ```
 
-`storage` probes published user-scope owner-tool cache rules. `projects` discovers matching projects within the supplied workdir to depth 7, then probes published project-generated rules. `repos` currently calls the same handler as `projects`; it does not require Git. `startup` scans macOS LaunchAgents and Login Items and offers eligible user LaunchAgents for disablement.
+`storage` probes published user-scope owner-tool cache rules. `projects` discovers matching projects within the supplied workdir to depth 7, then probes published project-generated rules. `repos` currently calls the same handler as `projects`; it does not require Git. All three cleanup routes use the JSON registry's probe-review-apply engine.
 
 Each command prints a plan before action. For storage and projects, enter `y` to select safe suggestions, displayed numbers to select explicit review targets, or leave the answer blank to cancel. Protected inventory cannot be selected. `-f, --force` skips the prompt and selects only safe, force-eligible targets; it does not apply review or protected targets. Without an interactive terminal and without `-f`, the plan is printed and the run cancels. Apply outcomes are reported and audited in SQLite and session logs.
 

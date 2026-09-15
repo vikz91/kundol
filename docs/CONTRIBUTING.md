@@ -1,6 +1,6 @@
 # Contributing to kundol
 
-kundol is a Bun + TypeScript CLI. Start with the [current code map](context.md) and [agent guide](agents.md); older dashboard and indexing docs describe removed public commands.
+kundol is a Bun + TypeScript CLI. Start with the [current code map](context.md) and [agent guide](agents.md); older dashboard and indexing docs describe retired commands and implementations.
 
 ```bash
 bun install --frozen-lockfile
@@ -33,7 +33,7 @@ In the PR, explain the exact target, source, selector, and safety tier. Ask a ma
 
 ## How a registry rule advances
 
-The `status` on each JSON rule tracks **registry-backed delivery**, not the issue's progress or whether a similar hardcoded cleanup exists. Move it through these phases in a reviewed PR with evidence for the next gate; merging an issue or PR does not advance it automatically.
+The `status` on each JSON rule tracks **registry-backed delivery**, not the issue's progress. Move it through these phases in a reviewed PR with evidence for the next gate; merging an issue or PR does not advance it automatically.
 
 | Phase | What the contributor must show | Availability |
 |---|---|---|

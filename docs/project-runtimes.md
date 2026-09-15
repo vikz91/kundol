@@ -1,10 +1,10 @@
 # Project Runtime Context
 
 Created: 2026-06-13 07:25:45 IST
-Last updated: 2026-09-15 13:02:49 IST
+Last updated: 2026-09-15 14:07:32 IST
 Related tasks: `KUN-010`, `KUN-025`, `KUN-083`, `KUN-092`, `KUN-098`
 
-`kundol optimise projects <workdir>` and `kundol optimise repos <workdir>` share the registry-backed scanner; `repos` does **not** require Git metadata. The scanner searches to fixed depth 7 for direct child marker patterns in published workdir rules, then probes generated entries directly under each detected root. The older [project optimizer](../src/services/project-optimizer/project-optimizer.ts) and shared safety policy remain available internally but are no longer the public CLI cleanup selector. There is no public runtime-audit command.
+`kundol optimise projects <workdir>` and `kundol optimise repos <workdir>` share the registry-backed scanner; `repos` does **not** require Git metadata. The scanner searches to fixed depth 7 for direct child marker patterns in published workdir rules, then probes generated entries directly under each detected root. The older hardcoded project optimizer and shared safety policy have been retired. There is no public runtime-audit command.
 
 ## Published project rules
 
@@ -22,4 +22,4 @@ Manifests, lockfiles, source, `.git`, `.env*`, databases, media, assets, uploads
 
 ## Proposed expansion
 
-The [optimisation registry](../registry/optimisations.json) also contains proposed Java, .NET, Go, iOS, Android, Unity, and other runtime targets. A proposed rule can be researched without activating cleanup. A published rule with already approved selectors and handlers can be added through JSON review; new removable names, owner adapters, or validation policy need code and disposable safety tests. Ambiguous `bin` output has a minimum review tier even where an older hardcoded scanner treated it as safe.
+The [optimisation registry](../registry/optimisations.json) also contains proposed Java, .NET, Go, iOS, Android, Unity, and other runtime targets. A proposed rule can be researched without activating cleanup. A published rule with already approved selectors and handlers can be added through JSON review; new removable names, owner adapters, or validation policy need code and disposable safety tests. Ambiguous `bin` output has a minimum review tier because it can hold releases or retained artifacts.

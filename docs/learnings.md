@@ -411,3 +411,10 @@ Add discoveries, decisions, implementation gotchas, and useful references here a
 
 - `gh run download` calls repository discovery before checkout and fails with `fatal: not a git repository` in a `workflow_run` runner. Pass `--repo "$GITHUB_REPOSITORY"` explicitly at that step; the existing PR #2 fix downloaded and validated PR #3's release metadata from `/tmp` without a Git checkout.
 - An open fix PR does not change the workflow used by `main`. After a new feature PR merged, bring current `main` into the fix branch and review the final diff so the pending fix retains current tag and release safeguards.
+
+### 2026-09-15 14:17:47 IST
+
+- The registry engine now owns all public optimisation flows. Remove retired startup, broad storage, project-index, scan/clean, archive, and configuration modules when no active command imports them; keep only the CLI presentation, registry schema/engine, audit, and platform helpers used by those paths.
+- Preserve the original SQLite v1 migration even after removing its unused repositories. Existing `~/.kundol` databases must remain readable, and the active action audit still uses the legacy `actions` table; deleting historical tables or resetting migration history would risk user data.
+- An isolated Docker demo should exercise published generated-project rules and protected fixtures. Six seeded projects currently yield four published-marker roots and three safe cleanup targets; the removed fake startup and Docker-prune runners are no longer part of the demo.
+- Removing a public command warrants a minor version bump before the next release. The pre-commit version hook supports `KUNDOL_VERSION_BUMP=minor`; set it when committing the cutover so the next merged PR does not reuse the existing `v0.3.1` tag.
