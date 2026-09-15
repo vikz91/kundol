@@ -1,14 +1,14 @@
 # kundol Brand
 
 Created: 2026-06-15 21:37:29 IST  
-Last updated: 2026-09-15 14:07:32 IST
-Related tasks: `KUN-055`, `KUN-056`, `KUN-072`, `KUN-081`, `KUN-086`, `KUN-091`
+Last updated: 2026-09-15 16:12:23 IST
+Related tasks: `KUN-055`, `KUN-056`, `KUN-072`, `KUN-081`, `KUN-086`, `KUN-091`, `KUN-101`, `KUN-103`
 
 ## GitHub description
 
 > macOS-first CLI for scanning and optimising developer-machine storage and generated project files.
 
-The earlier wording included startup items and was verified on the [GitHub repository](https://github.com/vikz91/kundol) on 2026-09-15. Update the repository description to this current storage-focused copy when editing GitHub metadata.
+At the 2026-09-15 audit, the [GitHub repository](https://github.com/vikz91/kundol) description still mentioned startup items, and released `v0.3.1` predated the command removal in [PR #5](https://github.com/vikz91/kundol/pull/5). Use the storage-focused copy above for the engine-only CLI and update public repository metadata after that behavior ships.
 
 ## Logo
 

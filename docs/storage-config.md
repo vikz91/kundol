@@ -1,8 +1,8 @@
 # Storage and Configuration
 
 Created: 2026-06-14 00:48:12 IST
-Last updated: 2026-09-15 14:07:32 IST
-Related tasks: `KUN-005`, `KUN-006`, `KUN-008`, `KUN-009`, `KUN-016`, `KUN-062`, `KUN-092`
+Last updated: 2026-09-15 16:05:32 IST
+Related tasks: `KUN-005`, `KUN-006`, `KUN-008`, `KUN-009`, `KUN-016`, `KUN-062`, `KUN-092`, `KUN-102`, `KUN-103`
 
 ## Current state
 
@@ -10,7 +10,7 @@ kundol uses one Bun SQLite database at `$HOME/.kundol/kundol.db`, not a database
 
 Migration v1 has `settings`, `workspaces`, `excluded_paths`, `projects`, `tags`, `project_tags`, `project_scans`, `scan_items`, `actions`, and `schema_migrations` tables. Those earlier project and configuration tables remain for compatibility with existing databases but are not populated by the engine-only CLI. The active audit path uses `actions`; the catalogue is bundled JSON, not a user config file.
 
-Per-process audit text files live at `$HOME/.kundol/sessions/session-<timestamp>-<pid>.log`. Each line is `ISO timestamp : device name : action : project name`. These logs are best-effort; SQLite `actions` rows are the durable structured record of successful scans, cancellations, and apply summaries. See [context](context.md) for audit caveats.
+Per-process audit text files live at `$HOME/.kundol/sessions/session-<timestamp>-<pid>.log`. Each line is `ISO timestamp : device name : action : project name`. These logs are best-effort; SQLite `actions` rows record scans, cancellations, selected-target attempts/outcomes, and apply summaries. Target events reuse one connection during apply, closed before the run summary, and no connection is held during selection. An outcome or summary audit failure after a real action appears as a warning instead of concealing the action result. See [context](context.md) for audit caveats.
 
 The old workspace index, project registry, and configuration services have been retired. There is no public `init`, `index`, `config`, project-registry `list`, or `scan` command. `kundol tools list` reads the bundled optimisation catalogue. The public `optimise projects <workdir>` and `optimise repos <workdir>` probe the path supplied for that run; they do not use persisted workspace or `excluded_paths` rows. The public `optimise storage` route probes published user-scope cache rules and does not use persisted project or scan rows.
 

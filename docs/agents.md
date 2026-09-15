@@ -1,7 +1,7 @@
 # kundol Agent Guide
 
 Created: 2026-06-13 07:21:12 IST
-Last updated: 2026-09-15 14:07:32 IST
+Last updated: 2026-09-15 16:06:02 IST
 
 kundol is a Bun + TypeScript macOS-first CLI for storage, generated-project-file optimisation, and catalogue discovery. [Usage](usage.md) explains first use; [context](context.md) maps the implementation; [commands](commands.md) defines the public CLI. The old TUI and project-discovery commands are not public.
 
@@ -59,7 +59,7 @@ The main agent owns integration. Delegate bounded exploration, implementation, o
 
 - Use Bun, ESM, strict TypeScript, `bun test`, and Bun SQLite unless there is a clear reason otherwise. Keep Commander handlers thin; core services must not depend on CLI presentation. Use typed results and injected filesystem, clock, process runner, and DB paths where useful.
 - Prefer structured process arguments over shell strings. Keep destructive filesystem actions behind services, with scan-plan-confirm (or `-f`), applicable live checks, and action audit. Never make a hidden network call during a normal scan.
-- Never automatically remove project roots, source, `.git`, `.env*`, databases, uploads, media, assets, or migrations. Generated `node_modules`, build output, and caches may be candidates only after registry safety classification and live revalidation. Reject path escapes, symlinks, missing or protected items, and stale unsafe plan candidates.
+- Never automatically remove project roots, source, `.git`, `.env*`, databases, uploads, media, assets, or migrations. Generated `node_modules`, build output, and caches may be candidates only after registry safety classification and live revalidation. Reject path escapes, symlinks, missing or protected items, and stale unsafe plan candidates. Generated-path apply uses the fail-closed `/usr/bin/python3` no-follow helper; do not replace it with pathname-based recursive deletion. Activity checks stream at most 150,000 entries, and eligible size measurement stops at 50,000 entries with unknown size when incomplete. The final leaf-name unlink still has a documented concurrent-replacement limit within its opened parent; see [context](context.md).
 - Docker resources, unattributed temp entries, and broad user Library caches are not active registry cleanup rules. Published generated-path and owner-cache rules require precise path and owner checks; inspect [context.md](context.md) before changing those workflows.
 - For new data-bearing cleanup categories such as volumes, databases, reports, media, or source after archive, require a scoped plan and dedicated explicit selection. Do not run destructive tests or smoke commands against a real home or project.
 

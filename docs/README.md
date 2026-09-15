@@ -1,9 +1,9 @@
 # kundol Docs
 
 Created: 2026-06-13 07:21:12 IST
-Last updated: 2026-09-15 14:07:32 IST
+Last updated: 2026-09-15 16:12:23 IST
 
-For implemented behavior, start with [usage](usage.md), [public commands](commands.md), and [codebase context](context.md). The three public cleanup routes use the JSON registry engine; startup and earlier hardcoded cleanup paths have been retired. Try project cleanup against disposable files with the [Docker sandbox](demo/docker-sandbox.md). Research pages distinguish published rules from future work.
+For implemented behavior in this checkout, start with [usage](usage.md), [public commands](commands.md), and [codebase context](context.md). The three public cleanup routes use the JSON registry engine; startup and earlier hardcoded cleanup paths have been retired. Try project cleanup against disposable files with the [Docker sandbox](demo/docker-sandbox.md). Research pages distinguish published rules from future work. [Homebrew readiness](homebrew-publishing-readiness.md) dates its release and formula status so a later tag or PR merge calls for re-verification; dated [learnings](learnings.md) and [plan](plan.md) entries preserve historical decisions.
 
 | Area | Pages |
 |---|---|

@@ -1,8 +1,8 @@
 # kundol Architecture
 
 Created: 2026-06-13 07:24:10 IST
-Last updated: 2026-09-15 14:07:32 IST
-Related tasks: `KUN-002`, `KUN-003`, `KUN-004`, `KUN-005`, `KUN-016`, `KUN-024`, `KUN-032`, `KUN-042`, `KUN-080`, `KUN-092`, `KUN-101`
+Last updated: 2026-09-15 16:06:11 IST
+Related tasks: `KUN-002`, `KUN-003`, `KUN-004`, `KUN-005`, `KUN-016`, `KUN-024`, `KUN-032`, `KUN-042`, `KUN-080`, `KUN-092`, `KUN-101`, `KUN-102`, `KUN-103`
 
 ## Current architecture
 
@@ -29,7 +29,7 @@ The earlier storage, project-optimizer, indexing, scan/clean, archive, project-r
 
 ## Safety and error boundaries
 
-Every `optimise` command prints a plan before selection or `-f`. Published registry targets are limited by integration/status, scope, code-approved handlers, and safety tier. The engine re-probes identity and repeats live checks before action; protected inventory has no removal action, and `-f` selects only safe suggestions. One or more apply failures return exit code 70; scans and audits can also return errors.
+Every `optimise` command prints a plan before selection or `-f`. Published registry targets are limited by integration/status, scope, code-approved handlers, and safety tier. The engine re-probes selected identities and repeats live checks before action; protected inventory has no removal action, and `-f` selects only safe suggestions. Activity checks stream to a fixed entry limit before size measurement. Generated-path deletion uses an isolated Python helper with no-follow, descriptor-relative removal and fails closed if unavailable; [context](context.md) documents its remaining final-entry race. Target audits reuse one SQLite connection during apply. One or more apply failures return exit code 70; scans and audits can also return errors.
 
 The public CLI does not perform broad Docker prune or blanket old-temp deletion. Docker resource inventory and temp ownership checks remain future work. Owner-tool cache commands may cause re-downloads. [Context](context.md) records the current limits.
 

@@ -1,8 +1,8 @@
 # kundol Launch and Community Guide
 
 Created: 2026-06-13
-Last updated: 2026-09-15 14:07:32 IST
-Related tasks: `KUN-001`, `KUN-049`–`KUN-055`, `KUN-092`, `KUN-095`
+Last updated: 2026-09-15 16:12:23 IST
+Related tasks: `KUN-001`, `KUN-049`–`KUN-055`, `KUN-092`, `KUN-095`, `KUN-103`
 
 This is a launch checklist for the **current CLI**. See [commands](commands.md) and [codebase context](context.md) for implemented behavior, [release workflow](release.md) for publishing, and [launch research](viral-launch.md) for the rationale.
 
@@ -21,12 +21,12 @@ Safety copy must be specific. Published project rules require approved selectors
 Before a public launch:
 
 1. Verify the README's install, [usage guide](usage.md), help, Docker demo, and CLI examples from a fresh checkout. Run `bun run check` and the local [release build](release.md#local-build) on macOS.
-2. Publish a license, code of conduct, and security reporting policy. The repository already has [issue templates](../.github/ISSUE_TEMPLATE/bug_report.md), a [PR template](../.github/pull_request_template.md), and a [contribution guide](CONTRIBUTING.md).
+2. Keep the published [MIT license](../LICENSE) visible, and add a code of conduct and security reporting policy. The repository already has [issue templates](../.github/ISSUE_TEMPLATE/bug_report.md), a [PR template](../.github/pull_request_template.md), and a [contribution guide](CONTRIBUTING.md).
 3. Add one terminal recording that shows `optimise projects` against disposable fixtures and the plan/report. Keep claims tied to that output.
 4. Provide a clear limitations section and a route for reporting false positives, install failures, and confusing plans.
 5. Enable GitHub Discussions only if a maintainer can answer safety and support questions promptly. Seed a few useful topics: welcome, safety reports, generated-file candidates, and runtime markers.
 
-The repository contains merged-PR CI, changelog, and release workflows. After a successful changelog run, the release job creates and pushes the version tag itself; no manual tag push starts it. The [release guide](release.md#repository-requirements) lists the bot permissions needed for changelog and tag pushes and notes that live GitHub behavior still needs validation.
+The repository has changelog and release workflows that published [v0.3.0](https://github.com/vikz91/kundol/releases/tag/v0.3.0) and [v0.3.1](https://github.com/vikz91/kundol/releases/tag/v0.3.1) before this audit. After a successful changelog run, the release job creates and pushes the version tag itself; no manual tag push starts it. [PR #5](https://github.com/vikz91/kundol/pull/5) adds full pre-merge CI to the existing merged-PR check and its [branch check passed](https://github.com/vikz91/kundol/actions/runs/34957413639). Verify the same check on `main` after the workflow lands. The [release guide](release.md#repository-requirements) records the observed results and remaining publication checks.
 
 ## Launch and feedback loop
 

@@ -1,7 +1,7 @@
 # kundol Learnings
 
 Created: 2026-06-13 07:21:12 IST  
-Last updated: 2026-09-15 15:49:12 IST
+Last updated: 2026-09-15 16:08:48 IST
 
 This file is the chronological learning log for agents working on kundol. Earlier dated entries describe the CLI and registry at those times; use [usage](usage.md) and [context](context.md) for current public behavior.
 Add discoveries, decisions, implementation gotchas, and useful references here as work progresses.
@@ -425,3 +425,9 @@ Add discoveries, decisions, implementation gotchas, and useful references here a
 - Activity validation must run before directory sizing. Stream both traversals and enforce entry limits during enumeration: reject unverifiable activity beyond 150,000 entries and report size as unknown beyond 50,000. An entry limit applied after `readdir` does not bound memory use.
 - A fixed Python standard-library helper can provide descriptor-relative filesystem removal where Bun lacks `openat`/`unlinkat` APIs. Resolve the reviewed canonical path before action so macOS's `/var` alias works, then open its ancestors with no-follow flags; refuse removal if the helper is unavailable. POSIX still cannot make a final unlink conditional on an inode, so the leaf-replacement race within the opened parent remains.
 - Reuse one SQLite connection for per-target audit events during apply, closing it before the run summary; do not hold it during a selection prompt. PR checks must run before merge as well as for a merged PR, or a failing change can only be discovered after landing.
+
+### 2026-09-15 16:08:48 IST
+
+- A code cleanup can leave release and publishing pages wrong even when CLI help and usage docs are aligned. Verify temporal claims against live PR, tag, release, licence, and workflow state; this audit found Homebrew guidance still describing `0.2.2`, an unmerged PR #2, and no release after `v0.3.0`/`v0.3.1` had shipped.
+- Keep open branch behavior distinct from the latest published release: PR #5 has engine-only `0.4.0`, while `main` and the latest tag still expose `0.3.1`. A proposed Homebrew formula must pin a chosen released tag and separately validate the absolute Python helper on clean Macs.
+- The dated plan and learning log preserve retired implementations as historical evidence. For user-facing and agent-facing pages, search old command names and dynamic status claims, check local file and heading anchors, and exercise examples in a disposable home/workdir before asserting documentation parity.

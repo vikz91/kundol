@@ -1,5 +1,8 @@
 # Contributing to kundol
 
+Last updated: 2026-09-15 16:06:28 IST
+Related tasks: `KUN-088`, `KUN-093`, `KUN-097`, `KUN-103`
+
 kundol is a Bun + TypeScript CLI. Start with the [current code map](context.md) and [agent guide](agents.md); older dashboard and indexing docs describe retired commands and implementations.
 
 ```bash
@@ -13,7 +16,7 @@ Keep CLI behavior, tests, and docs in step. For cleanup changes, show the scanne
 ## Request or contribute a registry target
 
 1. Run `kundol tools search <query>` for published targets and `kundol tools list` for the full catalogue; also search existing issues. The source definitions are in [`optimisations.json`](../registry/optimisations.json).
-2. Run `kundol tools request` to open a prefilled Markdown GitHub issue, or [open the request directly](https://github.com/vikz91/kundol/issues/new?title=%5BRegistry%20request%5D%3A%20&body=Owning%20tool%3A%0A%0AExact%20target%20and%20scope%3A%0A%0AOwner%20documentation%3A%0A%0AWhy%20add%20it%3A%0A%0AData%20and%20safety%20risks%3A%0A). Name the owning tool, exact generated path or resource and scope, owner-maintained documentation, expected benefit, and retention or data risks. Say when ownership or safety is uncertain; omit private paths, usernames, and secrets. The [structured request form](../.github/ISSUE_TEMPLATE/registry_request.yml) also appears in GitHub's issue chooser once published on `main`.
+2. Run `kundol tools request` to open a prefilled Markdown GitHub issue, or [open the request directly](https://github.com/vikz91/kundol/issues/new?title=%5BRegistry%20request%5D%3A%20&body=Owning%20tool%3A%0A%0AExact%20target%20and%20scope%3A%0A%0AOwner%20documentation%3A%0A%0AWhy%20add%20it%3A%0A%0AData%20and%20safety%20risks%3A%0A). Name the owning tool, exact generated path or resource and scope, owner-maintained documentation, expected benefit, and retention or data risks. Say when ownership or safety is uncertain; omit private paths, usernames, and secrets. The [structured request form](../.github/ISSUE_TEMPLATE/registry_request.yml) is already on `main` and appears in GitHub's issue chooser.
 3. Comment on the issue if you want to implement it. A maintainer can triage it, add `help wanted` or `good first issue`, and assign it. Reference the issue in your PR with `Closes #number`.
 
 To draft the first entry, run `bun run registry:new -- --help`. The command asks for a stable rule ID, existing category ID, short label/description, scope, and either an existing source reference or a new owner-documentation URL. It appends one valid `proposed` rule and source without reformatting the whole registry. The generated rule is **protected inventory only**: its selector is an unimplemented placeholder, `action` is `none`, and it cannot remove anything. Inspect [the registry fields and safety policy](optimisation-registry.md), replace the placeholder only when supported by precise owner evidence and code-owned adapters, then run `bun run registry:check` and `bun run check`.
