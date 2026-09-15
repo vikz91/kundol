@@ -14,6 +14,7 @@
     "lint": "eslint src tests scripts eslint.config.mjs --max-warnings 0",
     "typecheck": "tsc --noEmit",
     "build:check": "bun build src/cli/index.ts --target=bun --outfile /dev/null",
+    "build:release": "bun run scripts/build-release.ts",
     "smoke:cli": "bun run scripts/smoke-cli.ts",
     "registry:check": "bun run scripts/validate-optimisation-registry.ts",
     "check": "bun run check:tools && bun run lint && bun run typecheck && bun run registry:check && bun test && bun run build:check && bun run smoke:cli",

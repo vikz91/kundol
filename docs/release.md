@@ -20,7 +20,7 @@ If `vX.Y.Z` already exists, the workflow keeps that tag, executable, and release
 ```bash
 bun install --frozen-lockfile
 bun run check
-bun run scripts/build-release.ts --outfile dist/kundol-macos-universal
+bun run build:release --outfile dist/kundol-macos-universal
 ```
 
 The build compiles Bun's [macOS arm64 and x64 standalone targets](https://bun.com/docs/bundler/executables), combines them with `lipo`, applies an ad hoc code signature, verifies both architecture slices, and smoke-tests welcome/help/version in a temporary home. One executable is uploaded to the release. The ad hoc signature is **not** Apple Developer ID notarization; users may see a macOS download warning until signing credentials and notarization are added.
