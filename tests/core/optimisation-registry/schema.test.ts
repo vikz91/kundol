@@ -10,10 +10,10 @@ describe("optimisation registry", () => {
     expect(registry.rules).toHaveLength(95);
     expect(new Set(registry.rules.map((rule) => rule.categoryId))).toEqual(new Set(registry.categories.map((category) => category.id)));
     expect(registry.rules.every((rule) => rule.sourceRefs.length > 0)).toBe(true);
-    expect(registry.rules.every((rule) => rule.status === "proposed")).toBe(true);
+    expect(registry.rules.some((rule) => rule.status === "published")).toBe(true);
     expect(registry.rules.every((rule) => !rule.id.startsWith("startup."))).toBe(true);
     expect(registry.schemaVersion).toBe(2);
-    expect(registry.integration).toBe("catalogue_only");
+    expect(registry.integration).toBe("engine_ready");
   });
 
   test("requires a known lifecycle status for every rule", () => {
@@ -24,6 +24,18 @@ describe("optimisation registry", () => {
     rule.status = "published";
     expect(optimisationRegistrySchema.safeParse(changed).success).toBe(true);
     (rule as { status: string }).status = "unverified";
+    expect(optimisationRegistrySchema.safeParse(changed).success).toBe(false);
+  });
+
+  test("keeps engine integration explicit and inventory-only actions protected", () => {
+    const changed = structuredClone(registry);
+    changed.integration = "engine_ready";
+    expect(optimisationRegistrySchema.safeParse(changed).success).toBe(true);
+    (changed as { integration: string }).integration = "automatic";
+    expect(optimisationRegistrySchema.safeParse(changed).success).toBe(false);
+    changed.integration = "engine_ready";
+    const cache = changed.rules.find((rule) => rule.id === "store.pnpm.prune")!;
+    cache.action = { kind: "none" };
     expect(optimisationRegistrySchema.safeParse(changed).success).toBe(false);
   });
 

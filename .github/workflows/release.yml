@@ -91,26 +91,33 @@ jobs:
         if: steps.existing.outputs.exists == 'false'
         run: bun run scripts/build-release.ts --outfile "$RUNNER_TEMP/kundol-release/kundol-macos-universal"
 
-      - name: Tag source and publish GitHub Release
+      # The changelog workflow_run triggers this job. No human tag push is needed.
+      - name: Create or verify tag on the merged source
         if: steps.existing.outputs.exists == 'false'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_VERSION: ${{ steps.metadata.outputs.version }}
           MERGE_SHA: ${{ steps.metadata.outputs.mergeSha }}
         run: |
           TAG="v$RELEASE_VERSION"
           git fetch --tags origin
           if git rev-parse "refs/tags/$TAG" >/dev/null 2>&1; then
-            TAG_SHA="$(git rev-list -n 1 "$TAG")"
+            TAG_SHA="$(git rev-list -n 1 "refs/tags/$TAG")"
             test "$TAG_SHA" = "$MERGE_SHA"
           else
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git tag -a "$TAG" -m "kundol $TAG" "$MERGE_SHA"
-            git push origin "$TAG"
+            git push origin "refs/tags/$TAG:refs/tags/$TAG"
           fi
+
+      - name: Publish GitHub Release from the remote tag
+        if: steps.existing.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_VERSION: ${{ steps.metadata.outputs.version }}
+        run: |
+          TAG="v$RELEASE_VERSION"
           gh release create "$TAG" "$RUNNER_TEMP/kundol-release/kundol-macos-universal" \
             --verify-tag \
-            --target "$MERGE_SHA" \
             --title "kundol $TAG" \
             --notes-file "$RUNNER_TEMP/kundol-release/release-notes.md"

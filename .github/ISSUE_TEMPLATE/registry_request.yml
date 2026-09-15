@@ -1,0 +1,54 @@
+name: Request a registry target
+description: Suggest a developer tool or storage target for the catalogue
+title: "[Registry request]: "
+labels: ["registry-request"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Tell us what the owning tool stores and where its own documentation describes that data. This starts a catalogue proposal, not an active kundol cleanup command. Please omit private paths, usernames, and secrets. See [contributing guidance](https://github.com/vikz91/kundol/blob/main/docs/CONTRIBUTING.md).
+  - type: input
+    id: tool
+    attributes:
+      label: Owning tool
+      description: Name the app, runtime, package manager, or build tool.
+      placeholder: ExampleTool
+    validations:
+      required: true
+  - type: textarea
+    id: target
+    attributes:
+      label: Exact target and scope
+      description: Describe the generated path, cache, or resource identity and whether it is under a workdir, user home, system scope, or container context.
+      placeholder: The tool owns a per-project .example-cache directory beside its manifest.
+    validations:
+      required: true
+  - type: textarea
+    id: source
+    attributes:
+      label: Owner documentation
+      description: Link official or owner-maintained pages that establish the target and its supported cleanup or retention behavior.
+      placeholder: https://example.com/docs/cache
+    validations:
+      required: true
+  - type: textarea
+    id: value
+    attributes:
+      label: Why add this target?
+      description: Explain the developer problem and what an inventory or review plan should show.
+    validations:
+      required: true
+  - type: textarea
+    id: risk
+    attributes:
+      label: Data and safety risks
+      description: Identify anything that may contain user data, releases, credentials, active workloads, or difficult-to-recreate state. Say if you are unsure.
+    validations:
+      required: true
+  - type: checkboxes
+    id: duplicates
+    attributes:
+      label: Existing targets
+      options:
+        - label: I checked the existing registry and issues for this target.
+          required: true

@@ -1,9 +1,9 @@
 # kundol Learnings
 
 Created: 2026-06-13 07:21:12 IST  
-Last updated: 2026-09-15 12:09:59 IST
+Last updated: 2026-09-15 13:07:32 IST
 
-This file is the chronological learning log for agents working on kundol.
+This file is the chronological learning log for agents working on kundol. Earlier dated entries describe the CLI and registry at those times; use [usage](usage.md) and [context](context.md) for current public behavior.
 Add discoveries, decisions, implementation gotchas, and useful references here as work progresses.
 
 ## Entries
@@ -358,3 +358,47 @@ Add discoveries, decisions, implementation gotchas, and useful references here a
 - Source links must support the exact target and action granularity. NuGet global clear is whole-store, Playwright uninstall is installation-scoped, Colima profile deletion preserves its data disk by default, and kind images belong to a container engine. Replace unsupported generic inference-cache claims with the documented Hugging Face Xet transfer cache.
 - Generated names such as `bin`, `build`, and `coverage` can contain releases or retained reports. Require owner evidence and explicit review for ambiguous output. Use typed file/directory selectors and literal names; suffix patterns need a dedicated selector and must not turn into wildcards in literal generated paths.
 - `bun pm cache rm` needs a suitable package working directory; describe its future execution through a cwd-aware adapter instead of assuming a fixed argv command works from every location. Registry validation, lint, typecheck, tests, bundle, and smoke passed after tightening this catalogue.
+
+### 2026-09-15 12:25:00 IST
+
+- A successful merged-PR changelog run already triggers release through `workflow_run`; no manual tag push or tag-push event is required. Keep tagging after source checks/build, and publish only from a verified remote tag.
+- Git tag lookup and push should name `refs/tags/<version>` explicitly. A branch with the same version name can make a short `git rev-list <version>` lookup ambiguous; a temp bare-remote smoke test caught this and verified create/rerun behavior after the fix.
+- If publication fails after tag creation, a rerun can reuse the matching tag. Repository rules must allow the bot's changelog commit push and version-tag creation for the automatic chain to finish.
+
+### 2026-09-15 12:28:27 IST
+
+- A registry request should name the owning tool, exact target/scope, owner documentation, and retention risks before a contributor claims it. GitHub issue forms are discovered from the default branch; a prefilled generic new-issue URL remains usable until the form is published.
+- Scaffolded registry entries should be `proposed`, `protected`, and `action: none` with an explicit placeholder selector. That produces valid catalogue data without implying that an adapter or cleanup path exists. Insert source/rule lines without reformatting the entire JSON file, then parse the result through the same schema used by `registry:check`.
+- Changelog attribution should use the merged PR's `pull_request.user.login`, not the event `sender`, which may be the person who merged it. Escape the handle for Markdown and credit the author in the release notes artifact as well.
+
+### 2026-09-15 12:33:58 IST
+
+- Put the registry request path near the README's features and usage, where someone missing a tool will find it. Link the request, claim-and-scaffold guide, and changelog credit together; state that catalogue proposals do not activate CLI cleanup on their own.
+
+### 2026-09-15 12:37:28 IST
+
+- Explain registry rule status as delivery readiness rather than issue progress: requests and merged catalogue entries can remain `proposed`, `wip` is inactive implementation, `beta` needs an experimental CLI opt-in, and `published` needs a supported CLI path. The registry-wide integration marker and registered handlers still gate execution regardless of the status string.
+
+### 2026-09-15 12:41:05 IST
+
+- Keep registry probe, review, and apply plans engine-issued and immutable. Apply should consume a selected plan once, re-probe physical device/inode or owner resource fingerprint, repeat live validators, and skip changed targets before an action runs.
+- JSON can choose a generated target or reuse an owner command, so action approval must bind to code-reviewed generated names or a matching owner selector. Path safety validators must stay code-owned even if an injected validator uses the same ID.
+- An action can succeed after outcome audit persistence fails. Preserve the real action result and expose the audit failure separately; a failed attempt audit should prevent execution. The registry remains catalogue-only until the CLI and owner adapters are integrated.
+
+### 2026-09-15 13:05:56 IST
+
+- The CLI now loads the `engine_ready` JSON registry for published user-cache and workdir rules. Twelve rules are published; proposed and wip rules remain inactive, and beta has no public opt-in. The older broad Docker/temp and persisted-scan storage path is no longer routed from `optimise storage`.
+- `kundol tools available` and `search` read published rules, while `tools list --status all|proposed|wip|beta|published` reads the whole catalogue by status. `tools request` opens a prefilled Markdown GitHub issue, and `issue` opens the issue chooser. The [usage guide](usage.md) and [public commands](commands.md) document these flows.
+
+### 2026-09-15 13:07:51 IST
+
+- With `integration: engine_ready`, publishing a JSON rule can activate public cleanup. Treat status, marker, target kind, and tier edits as behavior changes; code-owned floors bind approved generated names to owner markers and review tiers, and owner commands to their path probes and tiers.
+- Project-root discovery now reads published marker patterns from the registry. Reusing the old project optimizer for discovery would still scan its hardcoded cleanup allowlist and miss SwiftPM; use the registry root walker for public project/repo commands.
+- The production activity handler scans a target and its contents for a seven-day no-change period. It is a conservative recent-use signal, not proof that no process holds an old file open. Keep this limitation visible when publishing an action or describing `tool_idle`.
+- Audit attempts and outcomes per target in SQLite before and after apply. Disposable CLI tests should prove force excludes review/protected targets, stale symlinks skip without an attempt, owner-command failures return 70, and old unattributed temp/Docker fixtures stay untouched.
+
+### 2026-09-15 13:10:19 IST
+
+- The source-run Docker demo must copy `registry/optimisations.json` along with `src/`. Adding `COPY registry` initially failed because `.dockerignore` excluded it; update both files when a newly imported runtime asset is needed in that image.
+- The rebuilt network-isolated demo lists 12 published rules and applies three aged project targets. Its base image lacks npm, Python, uv, Go, and pnpm, so storage reports unavailable owner tools and performs no action. `bun run check` passed 103 tests plus bundle and CLI smoke after integration.
+- A run-level SQLite summary is written after apply and can fail after the owner action succeeds. Keep the final report and return code tied to the actual action result, and surface both per-target outcome and run-level audit failures as warnings. A disposable test replaces its temporary DB file after the simulated owner action to verify this behavior.

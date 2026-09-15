@@ -1,9 +1,9 @@
 # kundol Agent Guide
 
 Created: 2026-06-13 07:21:12 IST
-Last updated: 2026-09-15 12:02:05 IST
+Last updated: 2026-09-15 13:07:32 IST
 
-kundol is a Bun + TypeScript macOS-first CLI for storage, startup, and generated-project-file optimisation. [Context](context.md) maps the implementation; [commands](commands.md) defines the public CLI. The old TUI and project-discovery commands are not public.
+kundol is a Bun + TypeScript macOS-first CLI for storage, startup, generated-project-file optimisation, and catalogue discovery. [Usage](usage.md) explains first use; [context](context.md) maps the implementation; [commands](commands.md) defines the public CLI. The old TUI and project-discovery commands are not public.
 
 ## Project documents
 
@@ -12,14 +12,14 @@ Start with [plan.md](plan.md), [learnings.md](learnings.md), and the [knowledge-
 | Page | Purpose |
 |---|---|
 | [architecture.md](architecture.md), [context.md](context.md) | Design boundaries and current code map. |
-| [commands.md](commands.md), [product-goal.md](product-goal.md) | Public commands and product direction. |
+| [usage.md](usage.md), [commands.md](commands.md), [product-goal.md](product-goal.md) | Usage, public commands, and product direction. |
 | [storage-optimizer.md](storage-optimizer.md), [storage-config.md](storage-config.md), [docker.md](docker.md) | Storage, persistence, and Docker behavior or future design. |
 | [project-runtimes.md](project-runtimes.md), [dependencies.md](dependencies.md) | Runtime markers, cleanup rules, and tool dependencies. |
-| [developer-cleanup-targets.md](developer-cleanup-targets.md), [optimisation-registry.md](optimisation-registry.md) | Proposed targets and the catalogue-only JSON registry. |
+| [developer-cleanup-targets.md](developer-cleanup-targets.md), [optimisation-registry.md](optimisation-registry.md) | Sourced targets, published/proposed JSON rules, and the active registry engine. |
 | [demo/seed-demo-workspace.md](demo/seed-demo-workspace.md), [demo/docker-sandbox.md](demo/docker-sandbox.md) | Disposable manual testing fixtures. |
 | [user-flow.md](user-flow.md), [workflows/implementation-wave-001.md](workflows/implementation-wave-001.md) | User-flow decisions and archived implementation coordination. |
 | [brand.md](brand.md), [launch.md](launch.md), [viral-launch.md](viral-launch.md) | Brand and launch knowledge. |
-| [CONTRIBUTING.md](CONTRIBUTING.md), [AUTHOR.md](AUTHOR.md), [CHANGELOG.md](CHANGELOG.md), [release.md](release.md) | Contribution and release records. |
+| [CONTRIBUTING.md](CONTRIBUTING.md), [AUTHOR.md](AUTHOR.md), [CHANGELOG.md](CHANGELOG.md), [release.md](release.md), [homebrew-publishing-readiness.md](homebrew-publishing-readiness.md) | Contribution, release, and Homebrew readiness records. |
 
 ## Operating loop
 
@@ -33,10 +33,10 @@ Allowed statuses are `todo`, `in progress`, `don`, and `cancelled`. Use `don` in
 
 ## Current public behavior
 
-- Bare `kundol` prints a welcome banner. `optimise storage`, `optimise startup`, `optimise projects <workdir>`, and `optimise repos <workdir>` are the public commands.
-- Every optimise run scans and prints a plan. Storage/projects/repos ask `[y/N]`; startup selects safe user LaunchAgent numbers. `-f` skips the prompt after planning. There is no public `--dry-run`, `--apply`, `--json`, or `--max-depth` workflow flag.
-- `repos` uses the same project scanner as `projects`, without Git filtering. Retained indexing, scan/clean, registry, and archive modules have no public commands. Storage can use previously persisted project scans.
-- SQLite actions and session logs live under `$HOME/.kundol`. Do not revive removed TUI, compact/archive, network lookup, daemon, or Docker volume purge scope without a user request or new plan task.
+- Bare `kundol` prints a welcome banner. `optimise storage|startup|projects|repos` runs plans; `tools available|search|list|request` browses or requests catalogue entries; `issue` opens GitHub's chooser.
+- Every optimise run scans and prints a plan. Storage/projects/repos accept `y` for safe suggestions or displayed numbers for explicit review; startup selects eligible user LaunchAgent numbers. `-f` selects only safe, force-eligible targets after planning. There is no public `--dry-run`, `--apply`, `--json`, or `--max-depth` workflow flag.
+- Storage and projects/repo cleanup use published registry rules; startup retains its own service. `repos` uses the same project handler without Git filtering. Older indexing, scan/clean, project-registry, and archive modules have no public commands.
+- SQLite actions and session logs live under `$HOME/.kundol`. Do not revive removed TUI, compact/archive, daemon, or Docker volume purge scope without a user request or new plan task.
 
 ## Collaboration roster
 
@@ -60,7 +60,7 @@ The main agent owns integration. Delegate bounded exploration, implementation, o
 - Use Bun, ESM, strict TypeScript, `bun test`, and Bun SQLite unless there is a clear reason otherwise. Keep Commander handlers thin; core services must not depend on CLI presentation. Use typed results and injected filesystem, clock, process runner, and DB paths where useful.
 - Prefer structured process arguments over shell strings. Keep destructive filesystem actions behind services, with scan-plan-confirm (or `-f`), applicable live checks, and action audit. Never make a hidden network call during a normal scan.
 - Never automatically remove project roots, source, `.git`, `.env*`, databases, uploads, media, assets, or migrations. Generated `node_modules`, build output, and caches may be candidates only after safety classification and live revalidation. Reject path escapes, symlinks, missing or protected items, and stale unsafe scan rows.
-- Docker volumes are excluded from the current storage apply; `~/Library/Caches` is review-only. Current storage still selects every old top-level `os.tmpdir()` entry and runs broad `docker system prune --force` without volumes. This is an implemented limitation, not the narrower future policy described in older design notes; inspect [context.md](context.md) before changing it.
+- Docker resources, unattributed temp entries, and broad user Library caches are not active registry cleanup rules. The retained old storage service still contains broad temp and Docker prune code, but the public CLI no longer calls it. Published generated-path and owner-cache rules require precise path and owner checks; inspect [context.md](context.md) before changing those workflows.
 - For new data-bearing cleanup categories such as volumes, databases, reports, media, or source after archive, require a scoped plan and dedicated explicit selection. Do not run destructive tests or smoke commands against a real home or project.
 
 ## Verification and knowledge

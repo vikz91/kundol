@@ -15,13 +15,18 @@
   <img src="https://img.shields.io/badge/audit-SQLite-8AF0C5?style=flat-square" alt="SQLite audit">
 </p>
 
-kundol is a macOS-first CLI for developer-machine storage, startup items, and generated project files. By default, every `optimise` run scans, prints a plan, prompts before acting, then reports and audits the result.
+kundol is a macOS-first CLI for developer-machine storage, startup items, and generated project files. It also lets you browse the optimisation catalogue and request missing tools. Every `optimise` run scans and prints a plan before selection; selected actions are reported and audited.
 
 ## Features
 
-- **Storage:** package/runtime cache maintenance, Docker system prune without volumes, and top-level temp entries at least seven days old.
+- **Storage:** published owner-tool cache rules with live checks and safe or explicit-review selection.
 - **Startup:** disable eligible user LaunchAgents without deleting their plist files.
-- **Projects/repos:** remove selected generated artifacts such as `node_modules`, `dist`, and `target` under a supplied workdir. `repos` uses the same scanner; Git is not required.
+- **Projects/repos:** review published generated-artifact rules under a supplied workdir. Safe targets such as `node_modules` and Rust `target` can be selected after live checks; `repos` uses the same handler and does not require Git.
+- **Tool catalogue:** list published rules, search them, or view all rules by delivery status.
+
+## Request a new tool
+
+Missing a developer cache or generated target? Check `kundol tools list`, then run `kundol tools request` to open a prefilled GitHub request with the owning tool, exact target, owner documentation, and data risks. Run `kundol issue` for a bug or general feature report. A contributor can claim a request, scaffold a protected proposal with `bun run registry:new`, and submit a PR using the [contribution guide](docs/CONTRIBUTING.md). Merged PRs credit the author's GitHub handle in the [changelog](docs/CHANGELOG.md). A proposal does not activate cleanup.
 
 ## Usage
 
@@ -31,11 +36,16 @@ bun run dev -- optimise storage
 bun run dev -- optimise startup
 bun run dev -- optimise projects ~/Projects
 bun run dev -- optimise repos ~/Projects
+bun run dev -- tools available
+bun run dev -- tools search "pnpm"
+bun run dev -- tools list --status proposed
+bun run dev -- tools request
+bun run dev -- issue
 ```
 
-Add `-f` to skip the prompt after planning. Project source/data and Docker volumes are excluded from default apply; see [current scope and limits](docs/context.md).
+Add `-f` to an `optimise` command to select only safe, force-eligible targets after planning. The `tools` commands read bundled JSON; request and issue commands open GitHub pages. See the [usage guide](docs/usage.md) for status filters, selection, and current limits.
 
-First-time users can try every workflow against disposable files with the [Docker sandbox](docs/demo/docker-sandbox.md). The container includes a `kundol` command, fake Docker resources, and simulated macOS startup items; it does not mount host projects or a Docker socket.
+First-time users can try project cleanup against disposable files with the [Docker sandbox](docs/demo/docker-sandbox.md). The container includes a `kundol` command and simulated macOS startup items; it does not mount host projects or a Docker socket.
 
 ```bash
 docker build -t kundol-demo:local .
@@ -47,7 +57,7 @@ docker run --rm -it --network none --cap-drop ALL --security-opt no-new-privileg
 
 | Tool | Best fit |
 |---|---|
-| **kundol** | Plan-based CLI cleanup for storage, eligible startup agents, and generated files in a chosen workdir, with local audits. |
+| **kundol** | Plan-based CLI cleanup for published cache and generated-file rules plus eligible startup agents, with catalogue browsing and local audits. |
 | [macOS Storage](https://support.apple.com/en-gb/guide/mac-help/mchl3d437fbc/mac) | Built-in space overview, file browsing, and storage recommendations. |
 | [ncdu](https://dev.yorhel.nl/ncdu) | Fast terminal exploration of disk usage. |
 | [Mole](https://github.com/tw93/Mole) | Broader Mac toolkit for cleanup, uninstall, disk analysis, project purge, and monitoring. |
@@ -56,4 +66,8 @@ docker run --rm -it --network none --cap-drop ALL --security-opt no-new-privileg
 
 `bun run check` runs tool-version, ESLint, TypeScript, registry, Bun test, bundle, and safe CLI boot checks. `bun install` activates Husky hooks: pre-commit first checks Bun and local TypeScript against the ranges in `package.json`, then requires lint, typecheck, and bundling to pass; pre-push checks bare `kundol` and `--help` under a temporary home.
 
-[Contributing](docs/CONTRIBUTING.md) · [Changelog](docs/CHANGELOG.md) · [Release process](docs/release.md)
+[Contributing](docs/CONTRIBUTING.md) · [Release process](docs/release.md)
+
+## License
+
+kundol is released under the [MIT License](LICENSE). You may use, modify, and redistribute it, including commercially, as long as you keep the copyright and license notice. The software is provided without warranty.

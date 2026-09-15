@@ -11,9 +11,9 @@ export function createOptimiseCommand(context: CommandContext): Command {
       [
         "",
         "Available tools:",
-        "  storage             package caches, Docker build/cache resources, and old temp entries",
+        "  storage             published owner-tool cache maintenance rules",
         "  projects <workdir>  generated/dependency artifacts under nested projects",
-        "  repos <workdir>     repo-scoped generated-artifact cleanup",
+        "  repos <workdir>     generated-artifact cleanup in a workdir",
         "  startup             system and app startup items",
         "",
         "All tools scan first, ask for confirmation, then clean. Use -f to skip the prompt.",
@@ -22,7 +22,7 @@ export function createOptimiseCommand(context: CommandContext): Command {
 
   optimise
     .command("storage")
-    .description("Clean machine-level storage targets such as package caches and Docker build cache.")
+    .description("Review and run published owner-tool storage cache rules.")
     .option("-f, --force", "skip confirmation after scanning", false)
     .addHelpText(
       "after",
@@ -74,7 +74,7 @@ export function createOptimiseCommand(context: CommandContext): Command {
 
   optimise
     .command("repos")
-    .description("Clean generated targets under Git repo workdirs.")
+    .description("Clean generated targets under a supplied workdir.")
     .argument("<workdir>", "workspace directory to scan")
     .option("-f, --force", "skip confirmation after scanning", false)
     .addHelpText(
