@@ -1,8 +1,8 @@
 # kundol Codebase Context
 
 Created: 2026-09-15 10:21:29 IST
-Last updated: 2026-09-15 14:07:32 IST
-Related tasks: `KUN-080`, `KUN-084`, `KUN-087`, `KUN-089`, `KUN-092`, `KUN-101`
+Last updated: 2026-09-15 15:48:30 IST
+Related tasks: `KUN-080`, `KUN-084`, `KUN-087`, `KUN-089`, `KUN-092`, `KUN-101`, `KUN-102`
 Basis: current `src/`, `tests/`, `package.json`, and CLI registration, rather than historical plans.
 
 ## What the tool is today
@@ -37,7 +37,7 @@ Docker and arbitrary `os.tmpdir()` entries remain proposed registry targets and 
 
 `optimise projects` resolves a real supplied workdir, discovers matching project roots to depth 7, and uses published workdir rules from the registry engine. The current generated targets include SwiftPM `.build`, `node_modules`, Python caches, Rust `target`, and a review-only `htmlcov` report. Published Visual Studio `.vs` state is protected inventory, never a removal action. The scanner does not descend through symlinks or generated/protected directory names. `repos` calls the same handler and does not require `.git`.
 
-Generated-path removal requires a code-approved selector and matching project marker. Before apply, the engine re-probes identity, verifies path scope and symlinks, checks ownership and activity, and audits attempts and outcomes. `-f` applies only safe suggestions; reports and protected inventory cannot be force-selected. Known reclaimed bytes come from applied path targets; owner-tool actions may not have a size estimate.
+Generated-path removal requires a code-approved selector and matching project marker. Before apply, the engine re-probes only the selected path, verifies scope, identity, ownership, and activity, and audits attempts and outcomes. The seven-day activity check streams directory entries and refuses trees beyond 150,000 entries. Directory sizing runs after eligibility checks and stops after 50,000 entries; an incomplete size is shown as unknown. An isolated system-Python helper opens path ancestors without following links and deletes relative to directory descriptors, preventing an ancestor swap from redirecting deletion. Missing descriptor support fails closed. POSIX does not make the final leaf-name unlink conditional on the checked inode, so a concurrent replacement within the opened parent remains a limited race. `-f` applies only safe suggestions; reports and protected inventory cannot be force-selected. Known reclaimed bytes come from applied path targets when measured completely; owner-tool actions may not have a size estimate.
 
 ## Code map and data flow
 
@@ -49,7 +49,7 @@ Generated-path removal requires a code-approved selector and matching project ma
 | `src/db/`, `src/services/audit/` | SQLite actions and per-process session records under `~/.kundol/`. |
 | `src/shared/`, `src/platform/` | Output, byte formatting, exit codes, clock, and home helpers. |
 
-SQLite migration v1 still creates settings, workspaces, project metadata, scans/items, actions, and migration tables for compatibility with existing databases. Active optimise runs use the actions table to record scan, cancellation, apply, and registry-target audit rows. Session logs are best effort; SQLite action writes are part of the command path. The current CLI does not index workspaces, persist project scans, or create archives.
+SQLite migration v1 still creates settings, workspaces, project metadata, scans/items, actions, and migration tables for compatibility with existing databases. Active optimise runs use the actions table to record scan, cancellation, apply, and registry-target audit rows. Target events reuse one SQLite connection per apply run; no connection is held while waiting for review selection. Session logs are best effort; SQLite action writes are part of the command path. The current CLI does not index workspaces, persist project scans, or create archives.
 
 ## Present limits
 

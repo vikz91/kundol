@@ -1,6 +1,10 @@
 # Disposable development image. No Docker socket or host filesystem mount is required.
 FROM oven/bun:1
 
+# Descriptor-relative generated-path deletion needs the isolated system Python.
+RUN apt-get update && apt-get install -y --no-install-recommends python3-minimal \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /opt/kundol
 COPY package.json bun.lock ./
 RUN bun install --frozen-lockfile --production --ignore-scripts

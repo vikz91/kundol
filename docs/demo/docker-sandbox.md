@@ -1,8 +1,8 @@
 # First-Time Docker Sandbox
 
 Created: 2026-09-15 11:29:12 IST
-Last updated: 2026-09-15 14:07:32 IST
-Related tasks: `KUN-089`, `KUN-092`, `KUN-098`, `KUN-101`
+Last updated: 2026-09-15 15:40:44 IST
+Related tasks: `KUN-089`, `KUN-092`, `KUN-098`, `KUN-101`, `KUN-102`
 
 This disposable **development demo** packages the current CLI as `kundol` in a Bash container. The example run mounts no host project, home directory, or Docker socket, disables container networking, and discards container writes on exit. Building the image still stores an image on the host.
 
@@ -23,7 +23,7 @@ kundol tools available
 kundol tools list --status proposed
 ```
 
-Each optimiser prints a registry plan first. For projects and repos, `y` selects safe suggestions when matching published targets are found; displayed numbers select explicit review targets. `-f` selects only safe targets after planning. Without a TTY or `-f`, a direct `docker run ... kundol optimise ...` invocation prints the plan and cancels. `tools` commands browse the bundled catalogue without applying cleanup. The base image has no npm, Python, uv, Go, or pnpm executable, so `optimise storage` reports those owner tools unavailable and selects no storage target by default.
+Each optimiser prints a registry plan first. For projects and repos, `y` selects safe suggestions when matching published targets are found; displayed numbers select explicit review targets. `-f` selects only safe targets after planning. Without a TTY or `-f`, a direct `docker run ... kundol optimise ...` invocation prints the plan and cancels. `tools` commands browse the bundled catalogue without applying cleanup. The image includes system Python for no-follow project deletion, but no pip, npm, uv, Go, or pnpm owner cache to optimise; storage reports those rules unavailable.
 
 | Seeded under `/sandbox` | Demonstrates |
 |---|---|

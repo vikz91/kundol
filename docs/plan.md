@@ -1,7 +1,7 @@
 # kundol Project Plan
 
 Created: 2026-06-13 07:18:52 IST  
-Last updated: 2026-09-15 14:18:57 IST
+Last updated: 2026-09-15 15:49:13 IST
 Project codename: kundol  
 Product concept name from source context: DevShelf  
 
@@ -153,6 +153,7 @@ These milestones record the earlier project-index and TUI plan; the current engi
 | KUN-099 | Release Workflow | Resolve PR #3 changelog conflict with the new merged-PR entry on `main`. | don | Codex | 2026-09-15 13:23:58 IST | 2026-09-15 13:23:58 IST | 2026-09-15 13:25:51 IST | KUN-098 | Merged current `main`, kept PR #1's v0.2.2 entry, verified and added its author credit, and kept branch wording. `bun run check` passed (104 tests); simulated v0.3.0 PR #3 append preserved both entries. Pushed the resolution to PR #3. |
 | KUN-100 | Release Workflow | Integrate the existing PR #2 metadata download fix with current `main` and verify it against the failed release artifact. | don | Codex | 2026-09-15 13:40:10 IST | 2026-09-15 13:40:10 IST | 2026-09-15 13:42:03 IST | KUN-095, KUN-099 | Merged current `main` into PR #2 while retaining its explicit `--repo` fix and current tag safeguards. Downloaded and validated PR #3 metadata from `/tmp`; `bun run check` passed (104 tests), universal arm64/x64 build passed, and its published registry command ran. Pushed the branch for review. |
 | KUN-101 | Registry CLI | Keep only registry-engine storage and workdir optimisation, remove startup and unreachable legacy implementation, and align docs and tests. | don | Codex | 2026-09-15 14:01:06 IST | 2026-09-15 14:01:06 IST | 2026-09-15 14:18:57 IST | KUN-098 | Engine-only CLI on `codex/engine-only-cli-cleanup`; removed startup and unreachable scanners, repositories, demos, and tests, retained the v1 SQLite migration. `bun run check` passed 56 tests; isolated Docker project cleanup and universal macOS build/smoke passed. |
+| KUN-102 | Registry Hardening | Fix PR #5 review findings: race-resistant generated-path removal, bounded scan/apply costs, run-scoped audits, and pre-merge CI. | don | Codex + specialist agents | 2026-09-15 15:31:31 IST | 2026-09-15 15:31:31 IST | 2026-09-15 15:49:13 IST | KUN-101 | Anchored generated removal to no-follow directory descriptors, with fail-closed system Python; made activity and sizing traversal bounded, selected-path apply linear, and target audit run-scoped; enabled pre-merge PR checks. `bun run check` passed 67 tests; isolated Docker and universal macOS executable cleanup smokes passed. POSIX leaf replacement within the opened parent remains documented. |
 
 ## Future Backlog
 

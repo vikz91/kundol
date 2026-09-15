@@ -42,6 +42,8 @@ bun run dev -- issue
 
 Add `-f` to an `optimise` command to select only safe, force-eligible targets after planning. The `tools` commands read bundled JSON; request and issue commands open GitHub pages. See the [usage guide](docs/usage.md) for status filters, selection, and current limits.
 
+Generated-project cleanup requires `/usr/bin/python3` for no-follow deletion and fails without it. Large directory sizes may be shown as unknown when a complete measurement would exceed the scan limit.
+
 First-time users can try project cleanup against disposable files with the [Docker sandbox](docs/demo/docker-sandbox.md). The container includes a `kundol` command and generated project fixtures; it does not mount host projects or a Docker socket.
 
 ```bash

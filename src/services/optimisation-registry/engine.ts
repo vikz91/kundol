@@ -2,7 +2,8 @@ import { createHash, randomUUID } from "node:crypto";
 import path from "node:path";
 import { parseOptimisationRegistry, type OptimisationRegistry } from "../../core/optimisation-registry/schema";
 import { isApprovedOwnerCommandRule, isKnownActionCommand, isKnownProbeCommand, runRegistryCommand } from "./commands";
-import { capturePathTarget, findGeneratedTargets, hasProjectMarker, isApprovedGeneratedSelector, removeGeneratedPath, samePathIdentity } from "./path-targets";
+import { capturePathTarget, findGeneratedTargets, hasProjectMarker, isApprovedGeneratedSelector, samePathIdentity } from "./path-targets";
+import { removeGeneratedPathSafely } from "./safe-removal";
 import type {
   RegistryActionAdapter,
   RegistryApplyResult,
@@ -186,7 +187,7 @@ export class OptimisationRegistryEngine {
         continue;
       }
       try {
-        const live = (await this.probeRule(rule)).find((entry) => entry.id === candidate.id);
+        const live = await this.probeSelectedCandidate(rule, candidate);
         if (!live || !this.sameTargetIdentity(candidate.target, live.target)) {
           const reason = "target changed or disappeared since review";
           skipped.push({ candidate, reason });
@@ -248,11 +249,8 @@ export class OptimisationRegistryEngine {
   }
 
   private async probeRule(rule: RegistryRule): Promise<RegistryCandidate[]> {
+    await this.runProbeCommands(rule);
     const cwd = this.context.commandCwd ?? this.context.homeDir;
-    for (const command of rule.probeCommands ?? []) {
-      const result = await this.runner(command.argv, cwd);
-      if (result.exitCode !== 0) throw new Error(`probe failed: ${result.stderr || result.stdout || command.argv.join(" ")}`);
-    }
     let targets: { target: RegistryTarget; evidence: readonly string[] }[];
     if (rule.selector.kind === "generated_path" || rule.selector.kind === "generated_suffix") {
       const markers = rule.selector.markers;
@@ -266,7 +264,7 @@ export class OptimisationRegistryEngine {
       let target: RegistryPathTarget | null = null;
       for (const root of allowedRoots) {
         try {
-          target = await capturePathTarget(rawPath, root, "directory");
+          target = await capturePathTarget(rawPath, root, "directory", false);
           break;
         } catch {
           continue;
@@ -297,24 +295,69 @@ export class OptimisationRegistryEngine {
     }
     const candidates: RegistryCandidate[] = [];
     for (const { target, evidence } of targets) {
-      const candidate: RegistryCandidate = {
-        id: targetId(rule.id, target),
-        ruleId: rule.id,
-        categoryId: rule.categoryId,
-        label: rule.label,
-        description: rule.description,
-        scope: rule.scope,
-        status: rule.status,
-        tier: rule.review.tier,
-        forceEligible: rule.review.forceEligible,
-        action: rule.action,
-        target,
-        evidence,
-        sources: rule.sourceRefs.map((reference) => this.registry.sources[reference]!),
-      };
-      if (await this.checkValidators(rule, candidate) === true) candidates.push(candidate);
+      const candidate = this.makeCandidate(rule, target, evidence);
+      if (await this.checkValidators(rule, candidate) !== true) continue;
+      if (target.kind !== "path") {
+        candidates.push(candidate);
+        continue;
+      }
+      try {
+        const measured = await capturePathTarget(target.absolutePath, target.scopeRoot, target.fileKind);
+        if (samePathIdentity(target, measured)) candidates.push(this.makeCandidate(rule, measured, evidence));
+      } catch {
+        // A path that changes or cannot be measured is not a reviewable target.
+      }
     }
     return candidates;
+  }
+
+  private async runProbeCommands(rule: RegistryRule): Promise<void> {
+    const cwd = this.context.commandCwd ?? this.context.homeDir;
+    for (const command of rule.probeCommands ?? []) {
+      const result = await this.runner(command.argv, cwd);
+      if (result.exitCode !== 0) throw new Error(`probe failed: ${result.stderr || result.stdout || command.argv.join(" ")}`);
+    }
+  }
+
+  private makeCandidate(rule: RegistryRule, target: RegistryTarget, evidence: readonly string[]): RegistryCandidate {
+    return {
+      id: targetId(rule.id, target), ruleId: rule.id, categoryId: rule.categoryId,
+      label: rule.label, description: rule.description, scope: rule.scope, status: rule.status,
+      tier: rule.review.tier, forceEligible: rule.review.forceEligible, action: rule.action,
+      target, evidence, sources: rule.sourceRefs.map((reference) => this.registry.sources[reference]!),
+    };
+  }
+
+  private async probeSelectedCandidate(rule: RegistryRule, reviewed: RegistryCandidate): Promise<RegistryCandidate | null> {
+    if (reviewed.target.kind !== "path" || rule.selector.kind === "adapter") {
+      return (await this.probeRule(rule)).find((entry) => entry.id === reviewed.id) ?? null;
+    }
+    await this.runProbeCommands(rule);
+    const targetPath = reviewed.target.absolutePath;
+    let evidence: readonly string[];
+    if (rule.selector.kind === "generated_path" || rule.selector.kind === "generated_suffix") {
+      if (!this.context.projectRoots.includes(reviewed.target.scopeRoot)) return null;
+      const name = path.basename(targetPath);
+      const matches = rule.selector.kind === "generated_path"
+        ? rule.selector.names.includes(name)
+        : rule.selector.suffixes.some((suffix) => name.endsWith(suffix));
+      if (!matches) return null;
+      evidence = [`project marker: ${rule.selector.markers.join(" or ")}`];
+    } else {
+      if (![this.context.homeDir, ...(this.context.userRoots ?? [])].includes(reviewed.target.scopeRoot)) return null;
+      const result = await this.runner(rule.selector.pathCommand.argv, this.context.commandCwd ?? this.context.homeDir);
+      if (result.exitCode !== 0) throw new Error(`cache path probe failed: ${result.stderr || result.stdout}`);
+      const rawPath = result.stdout.trim();
+      if (!path.isAbsolute(rawPath) || rawPath.includes("\n") || rawPath.includes("\r")) throw new Error("cache path probe did not return one absolute path");
+      if (path.resolve(rawPath) !== targetPath) return null;
+      evidence = [`owner path command: ${rule.selector.pathCommand.argv.join(" ")}`];
+    }
+    try {
+      const live = await capturePathTarget(targetPath, reviewed.target.scopeRoot, reviewed.target.fileKind, false);
+      return this.makeCandidate(rule, live, evidence);
+    } catch {
+      return null;
+    }
   }
 
   private async checkValidators(rule: RegistryRule, candidate: RegistryCandidate): Promise<true | string> {
@@ -354,10 +397,10 @@ export class OptimisationRegistryEngine {
     if (rule.action.kind === "none") throw new Error("inventory-only rule cannot execute");
     if (rule.action.kind === "remove_generated") {
       if (candidate.target.kind !== "path") throw new Error("generated action requires a path target");
-      const live = await capturePathTarget(candidate.target.absolutePath, candidate.target.scopeRoot, candidate.target.fileKind, false);
+      const live = await capturePathTarget(candidate.target.absolutePath, candidate.target.scopeRoot, candidate.target.fileKind);
       if (!samePathIdentity(candidate.target, live)) throw new Error("target changed before removal");
-      await removeGeneratedPath(live);
-      return candidate.target.sizeBytes;
+      await removeGeneratedPathSafely(live);
+      return live.sizeBytes;
     }
     if (rule.action.kind === "command") {
       if (!isKnownActionCommand(rule.action.argv)) throw new Error("command action is not code-approved");

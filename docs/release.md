@@ -1,15 +1,16 @@
 # kundol Release Workflow
 
 Created: 2026-09-15 11:36:31 IST
-Last updated: 2026-09-15 13:40:10 IST
-Related tasks: `KUN-088`, `KUN-092`, `KUN-093`, `KUN-095`, `KUN-100`
+Last updated: 2026-09-15 15:31:31 IST
+Related tasks: `KUN-088`, `KUN-092`, `KUN-093`, `KUN-095`, `KUN-100`, `KUN-102`
 
 ## Sequence
 
 | Event | Result |
 |---|---|
 | Interactive `git commit` | [Pre-commit hook](../.husky/pre-commit) checks tools, lint, types, and build; its version prompt stages the selected major/minor/patch change in the **same commit**. `KUNDOL_VERSION_BUMP=skip` skips deliberately, and non-interactive commits do not prompt. |
-| PR merged to `main` | [CI](../.github/workflows/ci.yml) runs lint, typecheck, tests, and build. The [changelog workflow](../.github/workflows/changelog.yml) adds the merged PR to [CHANGELOG.md](CHANGELOG.md) under the version from that PR's merge commit. |
+| PR opened, updated, or marked ready for review | [CI](../.github/workflows/ci.yml) runs the complete `bun run check` suite against the PR before merge with read-only permissions. |
+| PR merged to `main` | CI checks the merged source again. The [changelog workflow](../.github/workflows/changelog.yml) adds the merged PR to [CHANGELOG.md](CHANGELOG.md) under the version from that PR's merge commit. |
 | Changelog succeeds | The [release workflow](../.github/workflows/release.yml) reads that run's version, merge SHA, and notes artifact. It verifies and builds the merged source, creates and pushes its annotated `vX.Y.Z` tag, then publishes the executable from that remote tag. |
 
 The changelog workflow makes **one follow-up bot commit** to persist `docs/CHANGELOG.md` after a merge. The local version bump still stays inside the developer's original commit. The release tag points to the merged source commit, so a later changelog commit cannot change the binary's source. If a feature branch also edits the changelog, bring `main` into that branch and preserve both the recorded version entries and the branch's intentional edits when resolving conflicts.

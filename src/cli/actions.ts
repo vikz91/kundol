@@ -2,7 +2,7 @@ import { createInterface } from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
 import { homedir } from "node:os";
 import optimisationsJson from "../../registry/optimisations.json";
-import { openKundolDatabase } from "../db/client";
+import { openKundolDatabase, type KundolDatabase, type OpenDatabaseOptions } from "../db/client";
 import { ActionRepository } from "../db/repositories/action-repository";
 import { parseOptimisationRegistry, type OptimisationRegistry } from "../core/optimisation-registry/schema";
 import { formatBytes } from "../shared/format-bytes";
@@ -32,6 +32,7 @@ export interface CommandContext {
   registryNow?: () => Date;
   registrySelect?: (probe: RegistryProbeResult) => Promise<readonly string[]>;
   databasePath?: string;
+  databaseOpen?: (options: OpenDatabaseOptions) => KundolDatabase;
   homeDir?: string;
 }
 
@@ -56,7 +57,8 @@ export function showWelcome(context: CommandContext): CommandResult {
 export async function optimiseStorage(context: CommandContext, options: OptimiseRunOptions): Promise<CommandResult> {
   recordSessionAudit(context, { action: "STORAGE_SCAN" });
   const registry = context.registry ?? parseOptimisationRegistry(optimisationsJson);
-  const engine = registryEngine(context, registry, []);
+  const targetAudit = createActionRecorder(context);
+  const engine = registryEngine(context, registry, [], targetAudit);
   const ruleIds = registry.rules.filter((rule) => rule.scope === "user").map((rule) => rule.id);
   const preview = await withSpinner("Scanning storage targets", () => engine.probe({ ruleIds }));
   recordAction(context, "STORAGE_SCAN", {
@@ -78,7 +80,12 @@ export async function optimiseStorage(context: CommandContext, options: Optimise
 
   recordSessionAudit(context, { action: "STORAGE_OPTIMISE" });
   const review = engine.review(preview, options.force ? { force: true } : { force: false, confirmed: true, selectedIds });
-  const applied = await withSpinner("Optimising storage", () => engine.apply(review));
+  let applied: RegistryApplyResult;
+  try {
+    applied = await withSpinner("Optimising storage", () => engine.apply(review));
+  } finally {
+    targetAudit.close();
+  }
   const result = recordRegistryOutcome(context, "STORAGE_OPTIMISE", summarizeRegistryResult(applied), applied);
   writeRegistryReport(context, "Storage", result, registry);
   return result.failed.length > 0 ? { exitCode: exitCodes.software } : ok;
@@ -92,7 +99,8 @@ export async function optimiseProjects(
   recordSessionAudit(context, { action: "PROJECTS_SCAN", projectName: workdir });
   const registry = context.registry ?? parseOptimisationRegistry(optimisationsJson);
   const roots = await withSpinner("Discovering projects", () => discoverRegistryProjectRoots(workdir, registry, 7));
-  const engine = registryEngine(context, registry, roots.roots);
+  const targetAudit = createActionRecorder(context);
+  const engine = registryEngine(context, registry, roots.roots, targetAudit);
   const ruleIds = registry.rules.filter((rule) => rule.scope === "workdir").map((rule) => rule.id);
   const plan = await withSpinner("Scanning project targets", () => engine.probe({ ruleIds }));
   recordAction(context, "PROJECTS_SCAN", {
@@ -117,29 +125,58 @@ export async function optimiseProjects(
 
   recordSessionAudit(context, { action: "PROJECTS_OPTIMISE", projectName: roots.workdir });
   const review = engine.review(plan, options.force ? { force: true } : { force: false, confirmed: true, selectedIds });
-  const applied = await withSpinner("Optimising projects", () => engine.apply(review));
+  let applied: RegistryApplyResult;
+  try {
+    applied = await withSpinner("Optimising projects", () => engine.apply(review));
+  } finally {
+    targetAudit.close();
+  }
   const result = recordRegistryOutcome(context, "PROJECTS_OPTIMISE", { workdir: roots.workdir, ...summarizeRegistryResult(applied) }, applied);
   writeRegistryReport(context, "Project", result, registry);
   return result.failed.length > 0 ? { exitCode: exitCodes.software } : ok;
 }
 
 function recordAction(context: CommandContext, actionType: string, details: Record<string, unknown>, status?: string): void {
-  const connection = openKundolDatabase(dbOptions(context));
+  const recorder = createActionRecorder(context);
   try {
-    new ActionRepository(connection.db, { now: () => new Date() }).record({ actionType, details, ...(status ? { status } : {}) });
+    recorder.record(actionType, details, status);
   } finally {
-    connection.close();
+    recorder.close();
   }
 }
 
-function registryEngine(context: CommandContext, registry: OptimisationRegistry, projectRoots: readonly string[]) {
+interface ActionRecorder {
+  record(actionType: string, details: Record<string, unknown>, status?: string): void;
+  close(): void;
+}
+
+function createActionRecorder(context: CommandContext): ActionRecorder {
+  let connection: KundolDatabase | null = null;
+  let repository: ActionRepository | null = null;
+  return {
+    record(actionType, details, status) {
+      if (!repository) {
+        connection = (context.databaseOpen ?? openKundolDatabase)(dbOptions(context));
+        repository = new ActionRepository(connection.db, { now: () => new Date() });
+      }
+      repository.record({ actionType, details, ...(status ? { status } : {}) });
+    },
+    close() {
+      connection?.close();
+      connection = null;
+      repository = null;
+    },
+  };
+}
+
+function registryEngine(context: CommandContext, registry: OptimisationRegistry, projectRoots: readonly string[], targetAudit: ActionRecorder) {
   return createCliRegistryEngine({
     registry,
     context: { homeDir: context.homeDir ?? homedir(), projectRoots },
     ...(context.registryRunner ? { runner: context.registryRunner } : {}),
     ...(context.registryNow ? { now: context.registryNow } : {}),
     audit: async (event: RegistryAuditEvent) => {
-      recordAction(context, "REGISTRY_TARGET", {
+      targetAudit.record("REGISTRY_TARGET", {
         phase: event.phase,
         ruleId: event.ruleId,
         candidateId: event.candidateId,
