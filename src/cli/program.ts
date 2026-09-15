@@ -3,7 +3,6 @@ import packageJson from "../../package.json";
 import optimisationsJson from "../../registry/optimisations.json";
 import { parseOptimisationRegistry } from "../core/optimisation-registry/schema";
 import type { RegistryCommandRunner, RegistryProbeResult } from "../services/optimisation-registry";
-import type { StartupCommandRunner } from "../services/startup-optimizer";
 import { consoleOutput, type Output } from "../shared/output";
 import { showWelcome } from "./actions";
 import { createOptimiseCommand } from "./commands/optimise";
@@ -14,8 +13,6 @@ export interface CreateProgramOptions {
   output?: Output;
   databasePath?: string;
   homeDir?: string;
-  startupPlatform?: NodeJS.Platform;
-  startupRunner?: StartupCommandRunner;
   registry?: unknown;
   registryRunner?: RegistryCommandRunner;
   registryNow?: () => Date;
@@ -30,8 +27,6 @@ export function createProgram(options: CreateProgramOptions = {}): Command {
     registry,
     ...(options.databasePath ? { databasePath: options.databasePath } : {}),
     ...(options.homeDir ? { homeDir: options.homeDir } : {}),
-    ...(options.startupPlatform ? { startupPlatform: options.startupPlatform } : {}),
-    ...(options.startupRunner ? { startupRunner: options.startupRunner } : {}),
     ...(options.registryRunner ? { registryRunner: options.registryRunner } : {}),
     ...(options.registryNow ? { registryNow: options.registryNow } : {}),
     ...(options.registrySelect ? { registrySelect: options.registrySelect } : {}),
@@ -48,7 +43,6 @@ export function createProgram(options: CreateProgramOptions = {}): Command {
         "",
         "Command guide:",
         "  kundol optimise storage             review published owner-tool cache targets",
-        "  kundol optimise startup             disable user startup items after scanning system/app entries",
         "  kundol optimise projects <workdir>  clean generated/dependency artifacts under nested projects",
         "  kundol optimise repos <workdir>     generated-artifact cleanup in a workdir",
         "  kundol tools available              list published optimisation tools",
@@ -59,7 +53,6 @@ export function createProgram(options: CreateProgramOptions = {}): Command {
         "",
         "Examples:",
         "  kundol optimise storage",
-        "  kundol optimise startup",
         "  kundol optimise projects ~/Projects",
         "  kundol optimise repos ~/Projects -f",
         "  kundol tools available",

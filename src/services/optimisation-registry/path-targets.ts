@@ -1,4 +1,4 @@
-import { lstat, readdir, realpath, rm } from "node:fs/promises";
+import { lstat, opendir, readdir, realpath } from "node:fs/promises";
 import path from "node:path";
 import type { RegistryEngineContext, RegistryPathTarget, RegistryRule } from "./types";
 
@@ -33,6 +33,7 @@ const APPROVED_GENERATED_SUFFIXES = new Map<string, GeneratedPolicy>([
   [".profdata", policy(["CMakeLists.txt", "Cargo.toml", "Makefile"], "review", "file")],
 ]);
 const TIER_PRIORITY = { safe: 0, review: 1, protected: 2 } as const;
+const MAX_MEASURED_ENTRIES = 50_000;
 
 function matchesGeneratedPolicy(rule: RegistryRule, entry: string, approved: Map<string, GeneratedPolicy>): boolean {
   const found = approved.get(entry);
@@ -74,16 +75,22 @@ function assertNonProtectedName(targetPath: string): void {
   }
 }
 
-async function directorySizeBytes(root: string): Promise<number> {
+async function directorySizeBytes(root: string, maximumEntries: number): Promise<number | null> {
   let total = 0;
-  for (const entry of await readdir(root, { withFileTypes: true })) {
-    if (entry.isSymbolicLink()) continue;
-    const child = path.join(root, entry.name);
+  let checked = 0;
+  const pending = [root];
+  while (pending.length > 0) {
+    const directory = pending.pop()!;
     try {
-      if (entry.isDirectory()) total += await directorySizeBytes(child);
-      else if (entry.isFile()) total += (await lstat(child)).size;
+      for await (const entry of await opendir(directory)) {
+        if (++checked > maximumEntries) return null;
+        if (entry.isSymbolicLink()) continue;
+        const child = path.join(directory, entry.name);
+        if (entry.isDirectory()) pending.push(child);
+        else if (entry.isFile()) total += (await lstat(child)).size;
+      }
     } catch (error) {
-      throw new Error(`cannot measure generated directory ${child}: ${error instanceof Error ? error.message : String(error)}`, { cause: error });
+      throw new Error(`cannot measure generated directory ${directory}: ${error instanceof Error ? error.message : String(error)}`, { cause: error });
     }
   }
   return total;
@@ -109,6 +116,7 @@ export async function capturePathTarget(
   scopeRoot: string,
   expectedKind: "file" | "directory" | "either" = "either",
   measureSize = true,
+  maximumMeasuredEntries = MAX_MEASURED_ENTRIES,
 ): Promise<RegistryPathTarget> {
   const target = path.resolve(absolutePath);
   const root = path.resolve(scopeRoot);
@@ -119,7 +127,7 @@ export async function capturePathTarget(
   if (!isInside(rootRealPath, targetRealPath)) throw new Error("target real path escapes scope root");
   const fileKind = info.isFile() ? "file" : info.isDirectory() ? "directory" : null;
   if (!fileKind || (expectedKind !== "either" && fileKind !== expectedKind)) throw new Error("target kind does not match selector");
-  const sizeBytes = fileKind === "file" ? info.size : measureSize ? await directorySizeBytes(target) : null;
+  const sizeBytes = fileKind === "file" ? info.size : measureSize ? await directorySizeBytes(target, maximumMeasuredEntries) : null;
   return {
     kind: "path",
     key: `path:${targetRealPath}`,
@@ -150,7 +158,7 @@ export async function findGeneratedTargets(rule: RegistryRule, context: Registry
           : rule.selector.suffixes.some((suffix) => entry.name.endsWith(suffix));
         if (!matches) continue;
         try {
-          targets.push(await capturePathTarget(path.join(root, entry.name), root, rule.selector.targetKind ?? "either"));
+          targets.push(await capturePathTarget(path.join(root, entry.name), root, rule.selector.targetKind ?? "either", false));
         } catch {
           continue;
         }
@@ -165,8 +173,4 @@ export async function findGeneratedTargets(rule: RegistryRule, context: Registry
 export function samePathIdentity(left: RegistryPathTarget, right: RegistryPathTarget): boolean {
   return left.absolutePath === right.absolutePath && left.realPath === right.realPath && left.scopeRoot === right.scopeRoot &&
     left.fileKind === right.fileKind && left.device === right.device && left.inode === right.inode;
-}
-
-export async function removeGeneratedPath(target: RegistryPathTarget): Promise<void> {
-  await rm(target.absolutePath, { recursive: target.fileKind === "directory", force: false });
 }

@@ -206,7 +206,7 @@ describe("registry-backed optimise CLI", () => {
         if (signature === "pnpm store prune") return { exitCode: 1, stdout: "", stderr: "owner prune failed" };
         return { exitCode: 1, stdout: "", stderr: "unavailable" };
       },
-    }, { force: true, json: false });
+    }, { force: true });
     expect(result.exitCode).toBe(70);
     expect(captured.lines.join("\n")).toContain("Failed: 1");
     expect(captured.lines.join("\n")).toContain("owner prune failed");
@@ -232,7 +232,7 @@ describe("registry-backed optimise CLI", () => {
         }
         return { exitCode: 1, stdout: "", stderr: "unavailable" };
       },
-    }, { force: true, json: false });
+    }, { force: true });
     expect(result.exitCode).toBe(0);
     const text = captured.lines.join("\n");
     expect(text).toContain("Removed/optimised: 1");

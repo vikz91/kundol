@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { formatSessionAuditLine, getSessionAuditLogPath, recordSessionAudit } from "../../src/services/audit";
+import { formatSessionAuditLine, getSessionAuditLogPath, recordSessionAudit } from "../../src/services/audit/session-audit-log";
 
 describe("session audit log", () => {
   test("formats timestamped device action project lines", () => {

@@ -1,4 +1,4 @@
-import { lstat, readdir } from "node:fs/promises";
+import { lstat, opendir } from "node:fs/promises";
 import path from "node:path";
 import { OptimisationRegistryEngine } from "./engine";
 import { hasProjectMarker, isApprovedGeneratedSelector } from "./path-targets";
@@ -15,15 +15,16 @@ export interface CliRegistryEngineOptions {
   now?: () => Date;
 }
 
-async function hasRecentChanges(absolutePath: string, cutoffMs: number): Promise<boolean> {
+export async function hasRecentChanges(absolutePath: string, cutoffMs: number, maximumEntries = MAX_CHECKED_ENTRIES): Promise<boolean> {
   let checked = 0;
   async function visit(current: string): Promise<boolean> {
-    if (++checked > MAX_CHECKED_ENTRIES) throw new Error("target has too many entries to verify activity");
+    if (++checked > maximumEntries) throw new Error("target has too many entries to verify activity");
     const info = await lstat(current);
     if (info.isSymbolicLink()) return false;
     if (info.mtimeMs > cutoffMs) return true;
     if (!info.isDirectory()) return false;
-    for (const entry of await readdir(current, { withFileTypes: true })) {
+    const directory = await opendir(current);
+    for await (const entry of directory) {
       if (await visit(path.join(current, entry.name))) return true;
     }
     return false;

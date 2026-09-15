@@ -6,7 +6,7 @@ import { categoryFor, parseMergedPullRequest, releaseNotesForVersion, updateChan
 
 const pr = {
   number: 42,
-  title: "Fix startup scan",
+  title: "Fix cache scan",
   url: "https://github.com/example/kundol/pull/42",
   mergedAt: "2026-09-15T04:30:00Z",
   mergeCommitSha: "a".repeat(40),
@@ -44,8 +44,8 @@ describe("merged PR changelog", () => {
   test("adds a release-ready version section once", () => {
     const initial = "# Changelog\n\nChanges are recorded after merged PRs.\n";
     const changed = updateChangelog(initial, "0.1.1", pr);
-    expect(changed).toContain("## v0.1.1 (2026-09-15)\n\n### Fixed\n- Fix startup scan ([#42](https://github.com/example/kundol/pull/42)) — [@dev-contributor](https://github.com/dev-contributor) <!-- pr:42 -->");
-    expect(releaseNotesForVersion(changed, "0.1.1")).toBe("### Fixed\n- Fix startup scan ([#42](https://github.com/example/kundol/pull/42)) — [@dev-contributor](https://github.com/dev-contributor) <!-- pr:42 -->\n");
+    expect(changed).toContain("## v0.1.1 (2026-09-15)\n\n### Fixed\n- Fix cache scan ([#42](https://github.com/example/kundol/pull/42)) — [@dev-contributor](https://github.com/dev-contributor) <!-- pr:42 -->");
+    expect(releaseNotesForVersion(changed, "0.1.1")).toBe("### Fixed\n- Fix cache scan ([#42](https://github.com/example/kundol/pull/42)) — [@dev-contributor](https://github.com/dev-contributor) <!-- pr:42 -->\n");
     expect(updateChangelog(changed, "0.1.1", pr)).toBe(changed);
   });
 
@@ -68,7 +68,7 @@ describe("merged PR changelog", () => {
     const second = updateChangelog(first, "0.1.1", { ...pr, number: 43, url: "https://github.com/example/kundol/pull/43", title: "Document cleanup", labels: ["docs"] });
     expect(second.match(/^## v0\.1\.1/mg)).toHaveLength(1);
     expect(releaseNotesForVersion(second, "0.1.1")).toContain("### Documentation\n- Document cleanup");
-    expect(releaseNotesForVersion(second, "0.1.1")).toContain("### Fixed\n- Fix startup scan");
+    expect(releaseNotesForVersion(second, "0.1.1")).toContain("### Fixed\n- Fix cache scan");
   });
 });
 

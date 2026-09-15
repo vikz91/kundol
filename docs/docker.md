@@ -2,7 +2,7 @@
 
 The current public `kundol optimise storage` route probes published user-scope owner-tool cache rules. It does not call `docker system prune` or act on Docker containers, images, networks, volumes, or Desktop disk storage. The Docker rules in the [optimisation registry](../registry/optimisations.json) remain proposed or protected, so `kundol tools list --status proposed` can display them but no public command applies them.
 
-The [first-time sandbox](demo/docker-sandbox.md) still seeds fake Docker-like files and a fixture-only `docker` executable for development history. These are ordinary container files, not host daemon resources, and the current public storage route does not use that mock to prune them.
+The [first-time sandbox](demo/docker-sandbox.md) exercises generated-project cleanup. Earlier fake Docker-prune fixtures have been retired; the image does not mount the host Docker socket, and the public storage route does not prune Docker resources.
 
 ## Future resource-level design
 

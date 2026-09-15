@@ -1,7 +1,7 @@
 # kundol Learnings
 
 Created: 2026-06-13 07:21:12 IST  
-Last updated: 2026-09-15 13:40:10 IST
+Last updated: 2026-09-15 16:08:48 IST
 
 This file is the chronological learning log for agents working on kundol. Earlier dated entries describe the CLI and registry at those times; use [usage](usage.md) and [context](context.md) for current public behavior.
 Add discoveries, decisions, implementation gotchas, and useful references here as work progresses.
@@ -411,3 +411,23 @@ Add discoveries, decisions, implementation gotchas, and useful references here a
 
 - `gh run download` calls repository discovery before checkout and fails with `fatal: not a git repository` in a `workflow_run` runner. Pass `--repo "$GITHUB_REPOSITORY"` explicitly at that step; the existing PR #2 fix downloaded and validated PR #3's release metadata from `/tmp` without a Git checkout.
 - An open fix PR does not change the workflow used by `main`. After a new feature PR merged, bring current `main` into the fix branch and review the final diff so the pending fix retains current tag and release safeguards.
+
+### 2026-09-15 14:17:47 IST
+
+- The registry engine now owns all public optimisation flows. Remove retired startup, broad storage, project-index, scan/clean, archive, and configuration modules when no active command imports them; keep only the CLI presentation, registry schema/engine, audit, and platform helpers used by those paths.
+- Preserve the original SQLite v1 migration even after removing its unused repositories. Existing `~/.kundol` databases must remain readable, and the active action audit still uses the legacy `actions` table; deleting historical tables or resetting migration history would risk user data.
+- An isolated Docker demo should exercise published generated-project rules and protected fixtures. Six seeded projects currently yield four published-marker roots and three safe cleanup targets; the removed fake startup and Docker-prune runners are no longer part of the demo.
+- Removing a public command warrants a minor version bump before the next release. The pre-commit version hook supports `KUNDOL_VERSION_BUMP=minor`; set it when committing the cutover so the next merged PR does not reuse the existing `v0.3.1` tag.
+
+### 2026-09-15 15:49:12 IST
+
+- Rechecking a generated target by re-probing its whole rule made multi-target apply quadratic. Re-probe the selected path and its owner evidence directly, and repeat live validators before action. Resource adapters still need owner APIs for targeted inventory.
+- Activity validation must run before directory sizing. Stream both traversals and enforce entry limits during enumeration: reject unverifiable activity beyond 150,000 entries and report size as unknown beyond 50,000. An entry limit applied after `readdir` does not bound memory use.
+- A fixed Python standard-library helper can provide descriptor-relative filesystem removal where Bun lacks `openat`/`unlinkat` APIs. Resolve the reviewed canonical path before action so macOS's `/var` alias works, then open its ancestors with no-follow flags; refuse removal if the helper is unavailable. POSIX still cannot make a final unlink conditional on an inode, so the leaf-replacement race within the opened parent remains.
+- Reuse one SQLite connection for per-target audit events during apply, closing it before the run summary; do not hold it during a selection prompt. PR checks must run before merge as well as for a merged PR, or a failing change can only be discovered after landing.
+
+### 2026-09-15 16:08:48 IST
+
+- A code cleanup can leave release and publishing pages wrong even when CLI help and usage docs are aligned. Verify temporal claims against live PR, tag, release, licence, and workflow state; this audit found Homebrew guidance still describing `0.2.2`, an unmerged PR #2, and no release after `v0.3.0`/`v0.3.1` had shipped.
+- Keep open branch behavior distinct from the latest published release: PR #5 has engine-only `0.4.0`, while `main` and the latest tag still expose `0.3.1`. A proposed Homebrew formula must pin a chosen released tag and separately validate the absolute Python helper on clean Macs.
+- The dated plan and learning log preserve retired implementations as historical evidence. For user-facing and agent-facing pages, search old command names and dynamic status claims, check local file and heading anchors, and exercise examples in a disposable home/workdir before asserting documentation parity.

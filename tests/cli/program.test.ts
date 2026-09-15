@@ -27,7 +27,8 @@ describe("kundol CLI program", () => {
   test("registers the target optimise subcommands", () => {
     const optimiseCommand = createProgram().commands.find((command) => command.name() === "optimise");
     expect(optimiseCommand).toBeDefined();
-    expect(optimiseCommand?.commands.map((command) => command.name()).sort()).toEqual(["projects", "repos", "startup", "storage"]);
+    expect(optimiseCommand?.commands.map((command) => command.name()).sort()).toEqual(["projects", "repos", "storage"]);
+    expect(optimiseCommand?.commands.some((command) => command.name() === "startup")).toBe(false);
   });
 
   test("optimise commands expose only force as a workflow flag", () => {

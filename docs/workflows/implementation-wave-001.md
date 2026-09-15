@@ -14,7 +14,7 @@ This page records the first Bun/TypeScript implementation split. Its original `i
 | Data | User-scoped SQLite schema, migrations, settings, workspaces, and exclusions. |
 | Discovery and safety | Project marker traversal, read-only metadata, scan candidates, and shared path classification. |
 
-The retained discovery, project-registry, scan/clean, and archive modules still exist internally. The current public storage route does not read persisted scan rows; it probes published user-scope cache rules. The public product now uses `kundol optimise ...` workflows and catalogue browsing under `kundol tools ...`.
+The discovery, project-registry, scan/clean, and archive modules built after this early wave have since been retired. The public storage route does not read persisted scan rows; it probes published user-scope cache rules. The public product now uses `kundol optimise storage|projects|repos` workflows and catalogue browsing under `kundol tools ...`.
 
 ## Durable coordination rules
 

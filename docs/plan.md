@@ -1,7 +1,7 @@
 # kundol Project Plan
 
 Created: 2026-06-13 07:18:52 IST  
-Last updated: 2026-09-15 13:42:03 IST
+Last updated: 2026-09-15 16:09:03 IST
 Project codename: kundol  
 Product concept name from source context: DevShelf  
 
@@ -20,24 +20,24 @@ Use datetime format: `YYYY-MM-DD HH:mm:ss IST`.
 
 ## Product Direction
 
-kundol is a macOS-first Bun.js CLI for optimising developer-machine storage and startup behavior. Its public workflows clean package/runtime caches and old temporary entries, disable selected user LaunchAgents, and remove generated artifacts inside detected projects. It stores action audit records in SQLite; retained project indexing and scan code can store project metadata but has no public command in the current CLI.
+kundol is a macOS-first Bun.js CLI for developer-machine storage optimisation. Published JSON registry rules drive owner-tool cache maintenance and generated-project cleanup. Every action passes through the registry probe, review, and apply engine and records an SQLite/session audit. The retired startup, broad temp/Docker prune, project index, scan/clean, and archive implementations are no longer part of the codebase.
 
-The current product direction is a radical CLI-only simplification:
+The current public command direction is CLI-only:
 
 - Remove the dashboard/TUI as a product surface.
 - Collapse cleanup workflows under British-spelled `optimise` command groups.
-- Use `kundol optimise storage`, `kundol optimise startup`, `kundol optimise projects <workdir>`, and `kundol optimise repos <workdir>` as the public optimisation commands.
+- Use `kundol optimise storage`, `kundol optimise projects <workdir>`, and `kundol optimise repos <workdir>` as the public optimisation commands.
 - Do not expose `--dry-run`, `--apply`, or `--no-dry-run` flags.
-- Every optimise run scans first, prints a cleanup plan, asks for confirmation or startup item selection unless forced, executes selected actions, prints a final report, and audits the run.
-- Support only `-f, --force` to skip the confirmation or startup selection prompt after the scan/plan step.
+- Every optimise run probes first, prints a cleanup plan, asks for target selection unless forced, rechecks live targets, executes selected actions, prints a final report, and audits the run.
+- Support only `-f, --force` to select safe, force-eligible targets after the scan/plan step.
 
-Current runtime analysis scope: JavaScript/TypeScript, Java, .NET, Python, Rust, and Go.
-Future runtime roadmap: iOS and Android.
-Docker monitoring is an adjacent capability, not the core product identity.
+The active registry includes 12 published rules for shared package caches and project-generated paths; broader runtime and Docker rules remain proposals until their owner adapters and safety checks are implemented.
 
 The pasted context originally named the product `DevShelf`; the MVP now uses `kundol` for the repository, CLI binary, and package name.
 
-## MVP Milestones
+## Historical MVP Milestones
+
+These milestones record the earlier project-index and TUI plan; the current engine-only command surface is described above.
 
 1. Establish project foundation and decisions.
 2. Implement SQLite-backed registry.
@@ -152,8 +152,13 @@ The pasted context originally named the product `DevShelf`; the MVP now uses `ku
 | KUN-098 | Registry CLI | Route storage and project/repo optimisation through published registry rules, typed review selection, and per-target audit without broad legacy cleanup. | don | Codex | 2026-09-15 12:44:39 IST | 2026-09-15 12:44:39 IST | 2026-09-15 13:12:13 IST | KUN-094 | Wired both CLI paths to the bundled engine, published 12 guarded rules, discovered project roots from JSON markers, added safe/explicit/protected review and per-target audits, removed broad Docker/temp legacy routing, and fixed the disposable image registry copy. Action results survive later audit failure. `bun run check` passed (104 tests); Docker build and isolated tools/project/storage smoke passed. Startup stays separate. |
 | KUN-099 | Release Workflow | Resolve PR #3 changelog conflict with the new merged-PR entry on `main`. | don | Codex | 2026-09-15 13:23:58 IST | 2026-09-15 13:23:58 IST | 2026-09-15 13:25:51 IST | KUN-098 | Merged current `main`, kept PR #1's v0.2.2 entry, verified and added its author credit, and kept branch wording. `bun run check` passed (104 tests); simulated v0.3.0 PR #3 append preserved both entries. Pushed the resolution to PR #3. |
 | KUN-100 | Release Workflow | Integrate the existing PR #2 metadata download fix with current `main` and verify it against the failed release artifact. | don | Codex | 2026-09-15 13:40:10 IST | 2026-09-15 13:40:10 IST | 2026-09-15 13:42:03 IST | KUN-095, KUN-099 | Merged current `main` into PR #2 while retaining its explicit `--repo` fix and current tag safeguards. Downloaded and validated PR #3 metadata from `/tmp`; `bun run check` passed (104 tests), universal arm64/x64 build passed, and its published registry command ran. Pushed the branch for review. |
+| KUN-101 | Registry CLI | Keep only registry-engine storage and workdir optimisation, remove startup and unreachable legacy implementation, and align docs and tests. | don | Codex | 2026-09-15 14:01:06 IST | 2026-09-15 14:01:06 IST | 2026-09-15 14:18:57 IST | KUN-098 | Engine-only CLI on `codex/engine-only-cli-cleanup`; removed startup and unreachable scanners, repositories, demos, and tests, retained the v1 SQLite migration. `bun run check` passed 56 tests; isolated Docker project cleanup and universal macOS build/smoke passed. |
+| KUN-102 | Registry Hardening | Fix PR #5 review findings: race-resistant generated-path removal, bounded scan/apply costs, run-scoped audits, and pre-merge CI. | don | Codex + specialist agents | 2026-09-15 15:31:31 IST | 2026-09-15 15:31:31 IST | 2026-09-15 15:49:13 IST | KUN-101 | Anchored generated removal to no-follow directory descriptors, with fail-closed system Python; made activity and sizing traversal bounded, selected-path apply linear, and target audit run-scoped; enabled pre-merge PR checks. `bun run check` passed 67 tests; isolated Docker and universal macOS executable cleanup smokes passed. POSIX leaf replacement within the opened parent remains documented. |
+| KUN-103 | Documentation | Audit all indexed docs and examples after the engine-only CLI cleanup and PR #5 hardening; repair stale current-behavior instructions. | don | Codex | 2026-09-15 15:57:30 IST | 2026-09-15 15:57:30 IST | 2026-09-15 16:09:03 IST | KUN-101, KUN-102 | Corrected Homebrew/release/launch live status, current issue and contribution guidance, helper/scan/audit safety notes, and branch-versus-release copy. All local Markdown paths and section anchors resolved; documented help/catalogue/project/repo examples ran against a disposable home/workdir, with no apply. `git diff --check` passed. |
 
 ## Future Backlog
+
+These rows are historical ideas, not current CLI behavior; any storage cleanup proposal must enter the JSON registry and pass the engine safety gates before publication.
 
 | ID | Area | Task | Status | Owner | Created at | Started at | Completed at | Notes |
 |---|---|---|---|---|---|---|---|---|

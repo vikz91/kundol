@@ -3,7 +3,6 @@
 import { stat } from "node:fs/promises";
 import { join } from "node:path";
 import { createProgram } from "../src/cli/program";
-import { createFakeStartupRunner } from "./fake-startup-runner";
 
 const sandboxRoot = "/sandbox";
 try {
@@ -14,6 +13,4 @@ try {
 
 await createProgram({
   homeDir: join(sandboxRoot, "home"),
-  startupPlatform: "darwin",
-  startupRunner: createFakeStartupRunner(sandboxRoot),
 }).parseAsync(["bun", "kundol", ...process.argv.slice(2)]);
