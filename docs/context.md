@@ -1,14 +1,15 @@
 # kundol Codebase Context
 
 Created: 2026-09-15 10:21:29 IST
-Related tasks: `KUN-080`, `KUN-084`, `KUN-087`
+Last updated: 2026-09-15 12:02:05 IST
+Related tasks: `KUN-080`, `KUN-084`, `KUN-087`, `KUN-089`, `KUN-092`
 Basis: current `src/`, `tests/`, `package.json`, and CLI registration, rather than historical plans.
 
 ## What the tool is today
 
 kundol is a local Bun and TypeScript CLI for macOS system optimisation. Its implemented focus is developer-machine storage and startup items: it scans a scope, prints a plan, asks the user to proceed, applies selected actions, reports the result, and writes audit records. The project and repository commands clean generated artifacts inside detected code projects. Startup optimisation is macOS-only; storage and project scanning use portable Bun/Node APIs but include macOS-specific review rows.
 
-The executable is `src/cli/index.ts`. `package.json` exposes it as `kundol`, requires Bun 1.2 or later, and provides `bun run dev`, lint, typecheck, tests, a Bun bundle check, a CLI boot smoke, and `bun run check`. Commander registers only the root command and its `optimise` group. Running bare `kundol` prints the ASCII welcome banner and examples; it does not open a dashboard. `commander` is used for routing; `zod` is declared but has no current `src/` import.
+The executable is `src/cli/index.ts`. `package.json` exposes it as `kundol`, requires Bun 1.2 or later, and provides `bun run dev` and `bun run check`. Commander registers only the root command and its `optimise` group. Running bare `kundol` prints the ASCII welcome banner and examples. `zod` validates the internal optimisation registry but is not part of public command routing.
 
 ## Public commands
 
@@ -62,7 +63,8 @@ Before each deletion, apply rechecks the path's presence, symlink status, type, 
 | `src/services/audit/` | Best-effort per-process session log under `~/.kundol/sessions/`. |
 | `src/core/discovery/`, `workers/`, `registry/`, `analysis/`, `recommendations/`, `projects/`; `src/services/indexing/`, `scan-clean/`, `archive/`; remaining `src/config/` | Retained code from the earlier project-discovery CLI. These modules have tests and internal entrypoints, but their old commands are no longer registered. Storage apply still reaches the persisted-scan clean service for selected registry projects. |
 | `src/platform/`, `src/shared/` | Home/clock/filesystem helpers, output abstraction, and exit-code constants. |
-| `scripts/seed-demo-workspace.ts` | Fake Node/Python/Go workspace fixture. Its printed `init/index/list/scan` suggestions are from the removed CLI and are stale. |
+| `src/core/optimisation-registry/`, `registry/` | Internal JSON rule schema and catalogue validation; no public scan or apply route. |
+| `scripts/seed-demo-workspace.ts`, `scripts/seed-docker-sandbox.ts` | Fake Node/Python/Go workspace fixtures and a disposable container demo with fake Docker/startup resources. |
 
 SQLite migration v1 creates settings, workspaces, excluded paths, projects, tags, project scans/items, actions, and schema migration tables. The active CLI creates/migrates the DB when it reads projects or records actions. It logs a durable `*_SCAN` action after a successful scan, `*_CANCELLED` on cancellation, and `*_OPTIMISE` after apply; session logs also record the start of scan and apply. Action records default to status `completed`, including cancellation and partial-failure summaries. Session log writes silently fail on filesystem error; SQLite action writes are part of the action path.
 
@@ -70,10 +72,10 @@ The discovery/indexing service can still populate project metadata and lifecycle
 
 ## Present limits and documentation precedence
 
-This CLI is not a general macOS maintenance suite yet. It does not implement Docker resource inventory, modern background-item APIs, System Settings Login Item mutation, CPU/memory/battery monitoring, application-cache cleanup, iOS/Android project analysis, or a running daemon. `docs/docker.md`, `docs/architecture.md`, `docs/storage-optimizer.md`, `docs/user-flow.md`, and parts of the [agent guide](agents.md) describe earlier or planned behavior; use this page, `docs/commands.md`, and current CLI registration for **implemented** behavior.
+This CLI does not implement Docker resource inventory, modern background-item APIs, System Settings Login Item mutation, CPU/memory/battery monitoring, application-cache cleanup, iOS/Android project analysis, or a running daemon. Use this page, [commands.md](commands.md), and CLI registration for implemented behavior; design pages mark future work explicitly.
 
 Two current safety-policy gaps deserve attention when changing the optimizer: storage auto-selects **all** seven-day-old top-level entries in `os.tmpdir()` rather than only tool-owned temp data, and Docker apply uses broad system prune without a resource-by-resource plan. This differs from the narrower guidance in the [agent guide](agents.md) and historical storage/Docker docs. Startup live verification does not re-read the plist label or loaded state, and project apply does not enforce realpath containment after an ancestor swap. These are implementation facts, not assurances that those actions are safe for every machine.
 
 ## Development and verification
 
-Run `bun install` once, `bun run dev -- --help` to inspect the CLI, and `bun run check` for tool versions, lint, TypeScript checking, registry validation, Bun tests, bundling, and a bare/help CLI smoke. Husky installs local Git hooks during `prepare`: pre-commit checks Bun and local TypeScript against `package.json` ranges before lint, typecheck, and bundle checks; pre-push runs the CLI smoke under a temporary home. `tests/cli/program.test.ts` asserts registered commands/options. Service tests cover project candidate classification and live type changes, macOS startup item classification and disable calls with an injected runner, storage selection/failure summaries, and retained discovery/SQLite/scan-clean behavior. They do not exercise a real Docker prune or full interactive CLI confirmations. Keep manual optimisation runs against disposable test workdirs and injected temp homes; `-f` applies actions after planning.
+Run `bun install` once, `bun run dev -- --help` to inspect the CLI, and `bun run check` for tool versions, lint, TypeScript, registry validation, Bun tests, bundling, and CLI boot smoke. Husky checks code before commit and boots the CLI under a temporary home before push. Tests cover command registration, candidate classification, live type changes, injected startup actions, storage selection/failures, and retained DB/services. They do not exercise real Docker prune or full interactive confirmations. Use the [Docker sandbox](demo/docker-sandbox.md) for a disposable first run; it mocks Docker and macOS startup and mounts no host files or Docker socket.

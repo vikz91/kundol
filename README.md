@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/logo.png" alt="kundol logo: cyan K with a mint centre on charcoal" width="128" height="128">
+  <img src="assets/logo.png" alt="kundol logo: cyan K with a mint centre on charcoal" width="512" height="512">
 </p>
 
 <h1 align="center">kundol</h1>

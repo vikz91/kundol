@@ -1,7 +1,8 @@
 # kundol Release Workflow
 
 Created: 2026-09-15 11:36:31 IST
-Related task: `KUN-088`
+Last updated: 2026-09-15 12:07:02 IST
+Related tasks: `KUN-088`, `KUN-092`
 
 ## Sequence
 
@@ -26,7 +27,7 @@ The build compiles Bun's [macOS arm64 and x64 standalone targets](https://bun.co
 
 ## Repository requirements
 
-The workflows need GitHub Actions enabled on `main`. The changelog bot needs `contents: write` and permission to push its follow-up commit to `main`; branch protection that blocks Actions pushes will stop that workflow and the automatic release. The GitHub remote is currently empty, so no branch or workflow run exists yet to validate live behavior. The PR label guides the changelog category (`breaking`, `enhancement`, `fix`, `docs`, or maintenance); unlabelled PRs are recorded as Changed.
+The workflows need GitHub Actions enabled on `main`. The changelog bot needs `contents: write` and permission to push its follow-up commit to `main`; branch protection that blocks Actions pushes will stop that workflow and the automatic release. Validate live behavior after the workflows run on `main`. The PR label guides the changelog category (`breaking`, `enhancement`, `fix`, `docs`, or maintenance); unlabelled PRs are recorded as Changed.
 Both changelog and release jobs queue merged-PR runs so a later queued run does not replace an earlier one.
 
 Git's [pre-commit hook timing](https://git-scm.com/docs/githooks) is what makes one versioned commit possible. Use `KUNDOL_VERSION_BUMP=skip git commit --amend` to avoid another bump while amending. The [merged-PR event](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#pull_request_target) and [workflow-run event](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#workflow_run) drive the changelog and release stages.
