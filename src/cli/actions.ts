@@ -1,24 +1,22 @@
 import { createInterface } from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
+import { homedir } from "node:os";
+import optimisationsJson from "../../registry/optimisations.json";
 import { openKundolDatabase } from "../db/client";
 import { ActionRepository } from "../db/repositories/action-repository";
-import { ProjectRepository, type Project } from "../db/repositories/project-repository";
+import { parseOptimisationRegistry, type OptimisationRegistry } from "../core/optimisation-registry/schema";
 import { formatBytes } from "../core/registry/format";
 import { recordSessionAudit } from "../services/audit/session-audit-log";
 import {
-  applyStorageOptimization,
-  previewStorageOptimization,
-  type OptimizeApplyResult,
-  type OptimizeCandidate,
-  type OptimizePreview,
-} from "../services/optimize";
-import {
-  applyProjectOptimisePlan,
-  scanProjectOptimiseTargets,
-  type ProjectOptimiseApplyResult,
-  type ProjectOptimiseCandidate,
-  type ProjectOptimisePlan,
-} from "../services/project-optimizer";
+  createCliRegistryEngine,
+  discoverRegistryProjectRoots,
+  type RegistryApplyResult,
+  type RegistryAuditEvent,
+  type RegistryCandidate,
+  type RegistryCommandRunner,
+  type RegistryProbeResult,
+  type RegistryProjectRootsResult,
+} from "../services/optimisation-registry";
 import {
   applyStartupOptimisePlan,
   scanStartupOptimiseTargets,
@@ -37,6 +35,10 @@ export interface CommandResult {
 
 export interface CommandContext {
   output: Output;
+  registry?: OptimisationRegistry;
+  registryRunner?: RegistryCommandRunner;
+  registryNow?: () => Date;
+  registrySelect?: (probe: RegistryProbeResult) => Promise<readonly string[]>;
   databasePath?: string;
   homeDir?: string;
   startupPlatform?: NodeJS.Platform;
@@ -61,26 +63,33 @@ export function showWelcome(context: CommandContext): CommandResult {
   context.output.writeLine("  kundol optimise storage -f");
   context.output.writeLine("  kundol optimise startup");
   context.output.writeLine("  kundol optimise projects ~/Projects -f");
+  context.output.writeLine("  kundol tools available");
+  context.output.writeLine("  kundol tools request");
+  context.output.writeLine("  kundol issue");
   return ok;
 }
 
 export async function optimiseStorage(context: CommandContext, options: OptimiseRunOptions): Promise<CommandResult> {
   recordSessionAudit(context, { action: "STORAGE_SCAN" });
-  const projects = readProjects(context);
-  const preview = await withSpinner("Scanning storage targets", () => previewStorageOptimization(projects));
+  const registry = context.registry ?? parseOptimisationRegistry(optimisationsJson);
+  const engine = registryEngine(context, registry, []);
+  const ruleIds = registry.rules.filter((rule) => rule.scope === "user").map((rule) => rule.id);
+  const preview = await withSpinner("Scanning storage targets", () => engine.probe({ ruleIds }));
   recordAction(context, "STORAGE_SCAN", {
     candidateCount: preview.candidates.length,
-    safeSelectedCount: preview.safeSelectedCount,
-    knownReclaimableBytes: preview.knownReclaimableBytes,
+    safeSelectedCount: safeRegistryCandidates(preview).length,
+    knownReclaimableBytes: preview.knownBytes,
+    registryFingerprint: engine.fingerprint,
   });
 
   if (options.json) {
     writeJson(context, preview);
   } else {
-    writeStoragePlan(context, preview);
+    writeRegistryPlan(context, "Storage", preview, registry);
   }
 
-  if (!(await shouldContinue(context, options.force, `Proceed with ${preview.safeSelectedCount} storage cleanup action(s)?`))) {
+  const selectedIds = await selectRegistryCandidates(context, preview, options.force);
+  if (selectedIds.length === 0) {
     recordSessionAudit(context, { action: "STORAGE_CANCELLED" });
     recordAction(context, "STORAGE_CANCELLED", { candidateCount: preview.candidates.length });
     if (!options.json) context.output.writeLine("Cancelled. No storage targets were removed.");
@@ -88,19 +97,15 @@ export async function optimiseStorage(context: CommandContext, options: Optimise
   }
 
   recordSessionAudit(context, { action: "STORAGE_OPTIMISE" });
-  const connection = openKundolDatabase(dbOptions(context));
-  try {
-    const result = await withSpinner("Optimising storage", () => applyStorageOptimization(connection.db, preview));
-    recordAction(context, "STORAGE_OPTIMISE", summarizeStorageResult(result));
-    if (options.json) {
-      writeJson(context, { preview, result });
-    } else {
-      writeStorageReport(context, result);
-    }
-    return result.failed.length > 0 ? { exitCode: exitCodes.software } : ok;
-  } finally {
-    connection.close();
+  const review = engine.review(preview, options.force ? { force: true } : { force: false, confirmed: true, selectedIds });
+  const applied = await withSpinner("Optimising storage", () => engine.apply(review));
+  const result = recordRegistryOutcome(context, "STORAGE_OPTIMISE", summarizeRegistryResult(applied), applied);
+  if (options.json) {
+    writeJson(context, { preview, review, result });
+  } else {
+    writeRegistryReport(context, "Storage", result, registry);
   }
+  return result.failed.length > 0 ? { exitCode: exitCodes.software } : ok;
 }
 
 export async function optimiseProjects(
@@ -109,38 +114,43 @@ export async function optimiseProjects(
   options: OptimiseProjectsOptions,
 ): Promise<CommandResult> {
   recordSessionAudit(context, { action: "PROJECTS_SCAN", projectName: workdir });
-  const plan = await withSpinner("Scanning project targets", () =>
-    scanProjectOptimiseTargets(workdir, { maxDepth: options.maxDepth }),
-  );
+  const registry = context.registry ?? parseOptimisationRegistry(optimisationsJson);
+  const roots = await withSpinner("Discovering projects", () => discoverRegistryProjectRoots(workdir, registry, options.maxDepth));
+  const engine = registryEngine(context, registry, roots.roots);
+  const ruleIds = registry.rules.filter((rule) => rule.scope === "workdir").map((rule) => rule.id);
+  const plan = await withSpinner("Scanning project targets", () => engine.probe({ ruleIds }));
   recordAction(context, "PROJECTS_SCAN", {
-    workdir: plan.workdir,
-    maxDepth: plan.maxDepth,
-    projectCount: plan.projects.length,
+    workdir: roots.workdir,
+    maxDepth: roots.maxDepth,
+    projectCount: roots.roots.length,
     candidateCount: plan.candidates.length,
-    totalBytes: plan.totalBytes,
-    warningCount: plan.warnings.length,
+    totalBytes: plan.knownBytes,
+    warningCount: roots.warnings.length,
+    registryFingerprint: engine.fingerprint,
   });
 
   if (options.json) {
-    writeJson(context, plan);
+    writeJson(context, { roots, plan });
   } else {
-    writeProjectPlan(context, plan);
+    writeRegistryPlan(context, "Project", plan, registry, roots);
   }
 
-  if (!(await shouldContinue(context, options.force, `Proceed with ${plan.candidates.length} project cleanup target(s)?`))) {
-    recordSessionAudit(context, { action: "PROJECTS_CANCELLED", projectName: plan.workdir });
-    recordAction(context, "PROJECTS_CANCELLED", { workdir: plan.workdir, candidateCount: plan.candidates.length });
+  const selectedIds = await selectRegistryCandidates(context, plan, options.force);
+  if (selectedIds.length === 0) {
+    recordSessionAudit(context, { action: "PROJECTS_CANCELLED", projectName: roots.workdir });
+    recordAction(context, "PROJECTS_CANCELLED", { workdir: roots.workdir, candidateCount: plan.candidates.length });
     if (!options.json) context.output.writeLine("Cancelled. No project targets were removed.");
     return ok;
   }
 
-  recordSessionAudit(context, { action: "PROJECTS_OPTIMISE", projectName: plan.workdir });
-  const result = await withSpinner("Optimising projects", () => applyProjectOptimisePlan(plan));
-  recordAction(context, "PROJECTS_OPTIMISE", summarizeProjectResult(result, plan));
+  recordSessionAudit(context, { action: "PROJECTS_OPTIMISE", projectName: roots.workdir });
+  const review = engine.review(plan, options.force ? { force: true } : { force: false, confirmed: true, selectedIds });
+  const applied = await withSpinner("Optimising projects", () => engine.apply(review));
+  const result = recordRegistryOutcome(context, "PROJECTS_OPTIMISE", { workdir: roots.workdir, ...summarizeRegistryResult(applied) }, applied);
   if (options.json) {
-    writeJson(context, { plan, result });
+    writeJson(context, { roots, plan, review, result });
   } else {
-    writeProjectReport(context, result);
+    writeRegistryReport(context, "Project", result, registry);
   }
   return result.failed.length > 0 ? { exitCode: exitCodes.software } : ok;
 }
@@ -187,34 +197,69 @@ export async function optimiseStartup(context: CommandContext, options: Optimise
   return result.failed.length > 0 ? { exitCode: exitCodes.software } : ok;
 }
 
-function readProjects(context: CommandContext): Project[] {
-  const connection = openKundolDatabase({ ...dbOptions(context), readonly: false });
-  try {
-    return new ProjectRepository(connection.db, { now: () => new Date() }).list();
-  } finally {
-    connection.close();
-  }
-}
-
-function recordAction(context: CommandContext, actionType: string, details: Record<string, unknown>): void {
+function recordAction(context: CommandContext, actionType: string, details: Record<string, unknown>, status?: string): void {
   const connection = openKundolDatabase(dbOptions(context));
   try {
-    new ActionRepository(connection.db, { now: () => new Date() }).record({ actionType, details });
+    new ActionRepository(connection.db, { now: () => new Date() }).record({ actionType, details, ...(status ? { status } : {}) });
   } finally {
     connection.close();
   }
 }
 
-async function shouldContinue(context: CommandContext, force: boolean, question: string): Promise<boolean> {
-  if (force) return true;
+function registryEngine(context: CommandContext, registry: OptimisationRegistry, projectRoots: readonly string[]) {
+  return createCliRegistryEngine({
+    registry,
+    context: { homeDir: context.homeDir ?? homedir(), projectRoots },
+    ...(context.registryRunner ? { runner: context.registryRunner } : {}),
+    ...(context.registryNow ? { now: context.registryNow } : {}),
+    audit: async (event: RegistryAuditEvent) => {
+      recordAction(context, "REGISTRY_TARGET", {
+        phase: event.phase,
+        ruleId: event.ruleId,
+        candidateId: event.candidateId,
+        targetKey: event.targetKey,
+        ...(event.reason ? { reason: event.reason } : {}),
+      }, event.phase);
+      recordSessionAudit(context, { action: `REGISTRY_${event.phase.toUpperCase()}`, projectName: event.targetKey });
+    },
+  });
+}
+
+function safeRegistryCandidates(probe: RegistryProbeResult): RegistryCandidate[] {
+  return probe.candidates.filter((candidate) => candidate.tier === "safe" && candidate.forceEligible);
+}
+
+async function selectRegistryCandidates(context: CommandContext, probe: RegistryProbeResult, force: boolean): Promise<string[]> {
+  if (force) return safeRegistryCandidates(probe).map((candidate) => candidate.id);
+  if (probe.candidates.length === 0) return [];
+  if (context.registrySelect) {
+    const selected = await context.registrySelect(probe);
+    return selected.filter((id) => probe.candidates.some((candidate) => candidate.id === id && candidate.tier !== "protected"));
+  }
   if (!process.stdin.isTTY) {
-    context.output.writeError("Confirmation requires an interactive terminal. Re-run with -f to skip the prompt.");
-    return false;
+    context.output.writeError("Selection requires an interactive terminal. Re-run with -f to apply only listed safe targets.");
+    return [];
   }
   const reader = createInterface({ input, output });
   try {
-    const answer = await reader.question(`${question} [y/N] `);
-    return answer.trim().toLowerCase() === "y" || answer.trim().toLowerCase() === "yes";
+    const answer = (await reader.question("Select targets: y for safe, numbers for explicit review, or blank to cancel: ")).trim().toLowerCase();
+    if (answer === "y" || answer === "yes" || answer === "safe") return safeRegistryCandidates(probe).map((candidate) => candidate.id);
+    if (!answer || answer === "n" || answer === "no") return [];
+    if (!/^\d+(?:[,\s]+\d+)*$/.test(answer)) {
+      context.output.writeError("Enter displayed target numbers, y, or leave blank to cancel.");
+      return [];
+    }
+    const numbers = [...new Set(answer.split(/[,\s]+/).map(Number))];
+    if (numbers.some((number) => !Number.isSafeInteger(number) || number < 1 || number > probe.candidates.length)) {
+      context.output.writeError("A selected target number is outside the displayed plan.");
+      return [];
+    }
+    const selected = numbers.map((number) => probe.candidates[number - 1]!);
+    if (selected.some((candidate) => candidate.tier === "protected")) {
+      context.output.writeError("Protected inventory targets cannot be selected.");
+      return [];
+    }
+    return selected.map((candidate) => candidate.id);
   } finally {
     reader.close();
   }
@@ -264,72 +309,70 @@ async function withSpinner<T>(label: string, run: () => Promise<T>): Promise<T> 
   }
 }
 
-function writeStoragePlan(context: CommandContext, preview: OptimizePreview): void {
-  const selected = preview.candidates.filter((candidate) => candidate.safety === "safe" && candidate.defaultSelected);
-  context.output.writeLine("Storage optimisation plan");
-  context.output.writeLine(`Targets: ${selected.length}`);
-  context.output.writeLine(`Known reclaimable: ${formatBytes(preview.knownReclaimableBytes)}`);
-  context.output.writeLine("");
-  context.output.writeLine("Will remove or run:");
-  writeStorageCandidates(context, selected, 40);
+function renderRegistryTemplate(template: string, values: Readonly<Record<string, string>>): string {
+  return template.replace(/\{([a-zA-Z]+)\}/g, (placeholder, key: string) => values[key] ?? placeholder);
 }
 
-function writeStorageReport(context: CommandContext, result: OptimizeApplyResult): void {
-  context.output.writeLine("Storage optimisation report");
+function writeRegistryPlan(context: CommandContext, name: string, plan: RegistryProbeResult, registry: OptimisationRegistry, roots?: RegistryProjectRootsResult): void {
+  context.output.writeLine(`${name} optimisation plan`);
+  if (roots) {
+    context.output.writeLine(`Workdir: ${roots.workdir}`);
+    context.output.writeLine(`Max depth: ${roots.maxDepth}`);
+    context.output.writeLine(`Projects found: ${roots.roots.length}`);
+  }
+  context.output.writeLine(`Targets: ${plan.candidates.length}`);
+  context.output.writeLine(`Safe suggestions: ${safeRegistryCandidates(plan).length}`);
+  context.output.writeLine(`Known target footprint: ${formatBytes(plan.knownBytes)}`);
+  context.output.writeLine("Eligibility: target and contents must show no changes in the last 7 days.");
+  context.output.writeLine("");
+  if (plan.candidates.length === 0) context.output.writeLine("  none");
+  for (const [index, candidate] of plan.candidates.entries()) {
+    const target = candidate.target.kind === "path" ? candidate.target.absolutePath : `${candidate.target.ownerId}/${candidate.target.resourceId}`;
+    const size = candidate.target.sizeBytes === null ? "unknown" : formatBytes(candidate.target.sizeBytes);
+    const action = candidate.action.kind === "command" ? candidate.action.argv.join(" ") :
+      candidate.action.kind === "adapter" ? candidate.action.adapterId :
+      candidate.action.kind === "remove_generated" ? "remove generated path" : "inventory only";
+    context.output.writeLine(`  ${index + 1}. [${candidate.tier}] ${candidate.label}  ${size}`);
+    context.output.writeLine(`     ${target}`);
+    context.output.writeLine(`     ${renderRegistryTemplate(registry.messageTemplates.plan, { label: candidate.label, description: candidate.description })} Action: ${action}.`);
+    if (candidate.sources[0]) context.output.writeLine(`     Source: ${candidate.sources[0].url}`);
+  }
+  const unavailable = plan.skippedRules.filter((entry) => !entry.reason.startsWith("rule status "));
+  if (roots?.warnings.length || unavailable.length) {
+    context.output.writeLine("");
+    for (const warning of roots?.warnings ?? []) context.output.writeLine(`Warning: ${warning}`);
+    for (const entry of unavailable) context.output.writeLine(`Unavailable ${entry.ruleId}: ${entry.reason}`);
+  }
+  if (plan.candidates.length > 0) context.output.writeLine("Select y for safe suggestions or target numbers for explicit review. Protected entries cannot be selected.");
+}
+
+function writeRegistryReport(context: CommandContext, name: string, result: RegistryApplyResult, registry: OptimisationRegistry): void {
+  context.output.writeLine(`${name} optimisation report`);
   context.output.writeLine(`Removed/optimised: ${result.applied.length}`);
   context.output.writeLine(`Failed: ${result.failed.length}`);
   context.output.writeLine(`Skipped: ${result.skipped.length}`);
+  context.output.writeLine(`Known reclaimed: ${formatBytes(result.knownReclaimedBytes)}`);
   context.output.writeLine("");
   context.output.writeLine("Final cleanup targets:");
-  writeStorageCandidates(context, result.applied, 80);
-  if (result.failed.length > 0) {
-    context.output.writeLine("");
-    context.output.writeLine("Errors:");
-    for (const failure of result.failed) {
-      context.output.writeLine(`  ${failure.candidate.label}: ${failure.error}`);
-    }
+  if (result.applied.length === 0) context.output.writeLine("  none");
+  for (const { candidate } of result.applied) {
+    const target = candidate.target.kind === "path" ? candidate.target.absolutePath : `${candidate.target.ownerId}/${candidate.target.resourceId}`;
+    context.output.writeLine(`  ${renderRegistryTemplate(registry.messageTemplates.success, { label: candidate.label })} ${target}`);
   }
-}
-
-function writeProjectPlan(context: CommandContext, plan: ProjectOptimisePlan): void {
-  context.output.writeLine("Project optimisation plan");
-  context.output.writeLine(`Workdir: ${plan.workdir}`);
-  context.output.writeLine(`Max depth: ${plan.maxDepth}`);
-  context.output.writeLine(`Projects found: ${plan.projects.length}`);
-  context.output.writeLine(`Cleanup targets: ${plan.candidates.length}`);
-  context.output.writeLine(`Estimated reclaimable: ${formatBytes(plan.totalBytes)}`);
-  context.output.writeLine("");
-  context.output.writeLine("Will remove:");
-  writeProjectCandidates(context, plan.candidates, 80);
-  if (plan.warnings.length > 0) {
-    context.output.writeLine("");
-    context.output.writeLine(`Warnings: ${plan.warnings.length}`);
-  }
-}
-
-function writeProjectReport(context: CommandContext, result: ProjectOptimiseApplyResult): void {
-  const removedBytes = result.removed.reduce((total, candidate) => total + candidate.sizeBytes, 0);
-  context.output.writeLine("Project optimisation report");
-  context.output.writeLine(`Removed: ${result.removed.length}`);
-  context.output.writeLine(`Failed: ${result.failed.length}`);
-  context.output.writeLine(`Skipped: ${result.skipped.length}`);
-  context.output.writeLine(`Estimated reclaimed: ${formatBytes(removedBytes)}`);
-  context.output.writeLine("");
-  context.output.writeLine("Final cleanup targets:");
-  writeProjectCandidates(context, result.removed, 120);
   if (result.skipped.length > 0) {
     context.output.writeLine("");
     context.output.writeLine("Skipped:");
-    for (const skipped of result.skipped) {
-      context.output.writeLine(`  ${skipped.candidate.absolutePath}: ${skipped.reason}`);
-    }
+    for (const { candidate, reason } of result.skipped) context.output.writeLine(`  ${renderRegistryTemplate(registry.messageTemplates.skipped, { label: candidate.label, reason })}`);
   }
   if (result.failed.length > 0) {
     context.output.writeLine("");
     context.output.writeLine("Errors:");
-    for (const failure of result.failed) {
-      context.output.writeLine(`  ${failure.candidate.absolutePath}: ${failure.error}`);
-    }
+    for (const { candidate, error } of result.failed) context.output.writeLine(`  ${renderRegistryTemplate(registry.messageTemplates.failure, { label: candidate.label, error })}`);
+  }
+  if (result.auditWarnings.length > 0) {
+    context.output.writeLine("");
+    context.output.writeLine("Audit warnings:");
+    for (const warning of result.auditWarnings) context.output.writeLine(`  ${warning}`);
   }
 }
 
@@ -371,29 +414,6 @@ function writeStartupReport(context: CommandContext, result: StartupApplyResult)
   }
 }
 
-function writeStorageCandidates(context: CommandContext, candidates: OptimizeCandidate[], limit: number): void {
-  if (candidates.length === 0) {
-    context.output.writeLine("  none");
-    return;
-  }
-  for (const candidate of candidates.slice(0, limit)) {
-    const size = candidate.sizeBytes === null ? "unknown" : formatBytes(candidate.sizeBytes);
-    context.output.writeLine(`  ${candidate.label}  ${size}  ${candidate.command}`);
-  }
-  if (candidates.length > limit) context.output.writeLine(`  ... ${candidates.length - limit} more`);
-}
-
-function writeProjectCandidates(context: CommandContext, candidates: ProjectOptimiseCandidate[], limit: number): void {
-  if (candidates.length === 0) {
-    context.output.writeLine("  none");
-    return;
-  }
-  for (const candidate of candidates.slice(0, limit)) {
-    context.output.writeLine(`  ${formatBytes(candidate.sizeBytes)}  ${candidate.projectName}  ${candidate.absolutePath}`);
-  }
-  if (candidates.length > limit) context.output.writeLine(`  ... ${candidates.length - limit} more`);
-}
-
 function writeStartupCandidates(context: CommandContext, candidates: StartupCandidate[], limit: number, numbered: boolean): void {
   if (candidates.length === 0) {
     context.output.writeLine("  none");
@@ -406,21 +426,29 @@ function writeStartupCandidates(context: CommandContext, candidates: StartupCand
   if (candidates.length > limit) context.output.writeLine(`  ... ${candidates.length - limit} more`);
 }
 
-function summarizeStorageResult(result: OptimizeApplyResult): Record<string, unknown> {
+function summarizeRegistryResult(result: RegistryApplyResult): Record<string, unknown> {
   return {
-    applied: result.applied.map((candidate) => candidate.label),
-    skipped: result.skipped.map((candidate) => candidate.label),
-    failed: result.failed.map((failure) => ({ label: failure.candidate.label, error: failure.error })),
+    applied: result.applied.map(({ candidate }) => ({ ruleId: candidate.ruleId, targetKey: candidate.target.key })),
+    skipped: result.skipped.map(({ candidate, reason }) => ({ ruleId: candidate.ruleId, targetKey: candidate.target.key, reason })),
+    failed: result.failed.map(({ candidate, error }) => ({ ruleId: candidate.ruleId, targetKey: candidate.target.key, error })),
+    knownReclaimedBytes: result.knownReclaimedBytes,
+    auditWarnings: result.auditWarnings,
   };
 }
 
-function summarizeProjectResult(result: ProjectOptimiseApplyResult, plan: ProjectOptimisePlan): Record<string, unknown> {
-  return {
-    workdir: plan.workdir,
-    removed: result.removed.map((candidate) => candidate.absolutePath),
-    skipped: result.skipped.map((skipped) => ({ path: skipped.candidate.absolutePath, reason: skipped.reason })),
-    failed: result.failed.map((failure) => ({ path: failure.candidate.absolutePath, error: failure.error })),
-  };
+function recordRegistryOutcome(
+  context: CommandContext,
+  actionType: string,
+  details: Record<string, unknown>,
+  result: RegistryApplyResult,
+): RegistryApplyResult {
+  try {
+    recordAction(context, actionType, details);
+    return result;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return { ...result, auditWarnings: [...result.auditWarnings, `${actionType} audit failed after apply: ${message}`] };
+  }
 }
 
 function summarizeStartupResult(result: StartupApplyResult): Record<string, unknown> {

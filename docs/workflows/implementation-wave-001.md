@@ -4,7 +4,7 @@ Created: 2026-06-15
 Archived: 2026-09-15
 Related tasks: `KUN-003`–`KUN-020`, `KUN-025`–`KUN-032`, `KUN-092`
 
-This page records the first Bun/TypeScript implementation split. Its original `init`, `index`, `list`, `scan`, `clean`, dashboard, and TUI integration plan is **historical**. Those commands are not registered in the current public CLI. Use [commands](../commands.md), [codebase context](../context.md), and the [task ledger](../plan.md) for current work.
+This page records the first Bun/TypeScript implementation split. Its original `init`, `index`, project-registry `list`, `scan`, `clean`, dashboard, and TUI integration plan is **historical**. Those commands are not registered in the current public CLI; `kundol tools list` is a different command that reads the optimisation catalogue. Use [usage](../usage.md), [commands](../commands.md), [codebase context](../context.md), and the [task ledger](../plan.md) for current work.
 
 ## What the wave established
 
@@ -14,7 +14,7 @@ This page records the first Bun/TypeScript implementation split. Its original `i
 | Data | User-scoped SQLite schema, migrations, settings, workspaces, and exclusions. |
 | Discovery and safety | Project marker traversal, read-only metadata, scan candidates, and shared path classification. |
 
-The retained discovery, registry, scan/clean, and archive modules still exist internally. Storage apply can reach persisted scan rows, but a fresh install has no public indexing command to create them. The public product now uses `kundol optimise ...` workflows.
+The retained discovery, project-registry, scan/clean, and archive modules still exist internally. The current public storage route does not read persisted scan rows; it probes published user-scope cache rules. The public product now uses `kundol optimise ...` workflows and catalogue browsing under `kundol tools ...`.
 
 ## Durable coordination rules
 
