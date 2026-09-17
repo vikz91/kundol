@@ -1,7 +1,7 @@
 # kundol Learnings
 
 Created: 2026-06-13 07:21:12 IST  
-Last updated: 2026-09-15 16:08:48 IST
+Last updated: 2026-09-17 10:30:49 IST
 
 This file is the chronological learning log for agents working on kundol. Earlier dated entries describe the CLI and registry at those times; use [usage](usage.md) and [context](context.md) for current public behavior.
 Add discoveries, decisions, implementation gotchas, and useful references here as work progresses.
@@ -431,3 +431,7 @@ Add discoveries, decisions, implementation gotchas, and useful references here a
 - A code cleanup can leave release and publishing pages wrong even when CLI help and usage docs are aligned. Verify temporal claims against live PR, tag, release, licence, and workflow state; this audit found Homebrew guidance still describing `0.2.2`, an unmerged PR #2, and no release after `v0.3.0`/`v0.3.1` had shipped.
 - Keep open branch behavior distinct from the latest published release: PR #5 has engine-only `0.4.0`, while `main` and the latest tag still expose `0.3.1`. A proposed Homebrew formula must pin a chosen released tag and separately validate the absolute Python helper on clean Macs.
 - The dated plan and learning log preserve retired implementations as historical evidence. For user-facing and agent-facing pages, search old command names and dynamic status claims, check local file and heading anchors, and exercise examples in a disposable home/workdir before asserting documentation parity.
+
+### 2026-09-17 10:30:49 IST — KUN-104
+
+- Architecture diagrams should distinguish scope plans from engine instances: `optimise all` probes four scopes through three engines, reusing the storage engine for system scope. Handler presence also differs from release eligibility; staged Docker adapters do not enable public cleanup. The refreshed [architecture](architecture.md) captures both boundaries.
