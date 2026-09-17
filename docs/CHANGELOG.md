@@ -2,6 +2,11 @@
 
 Merged pull requests to `main` are recorded here by the [changelog workflow](../.github/workflows/changelog.yml). Entries are grouped by version and credit the pull request author's GitHub handle.
 
+## v0.5.0 (2026-09-17)
+
+### Changed
+- Add beta registry handlers and unified optimiser ([#7](https://github.com/vikz91/kundol/pull/7)) — [@vikz91](https://github.com/vikz91) <!-- pr:7 -->
+
 ## v0.4.0 (2026-09-15)
 
 ### Registry
