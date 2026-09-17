@@ -23,6 +23,8 @@ Start with [plan.md](plan.md), [learnings.md](learnings.md), and the [knowledge-
 
 ## Operating loop
 
+For the public help site, see [manual authoring and publication](manual-publishing.md). Edit source docs, not ignored generated pages; run `bun run docs:build` for site changes.
+
 1. Read [plan.md](plan.md), [product-goal.md](product-goal.md), [learnings.md](learnings.md), and relevant docs. Inspect the touched code with `rg` and tests before editing.
 2. Choose an unblocked task that is not already `in progress` unless the user asked you to continue it. Set its status to `in progress`, Owner, and Started at.
 3. State the intended edit. Keep work scoped, use `apply_patch` for hand edits, and preserve other agents' changes. Keep CLI, docs, and tests in parity when user behavior changes.

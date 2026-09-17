@@ -435,3 +435,7 @@ Add discoveries, decisions, implementation gotchas, and useful references here a
 ### 2026-09-17 10:30:49 IST — KUN-104
 
 - Architecture diagrams should distinguish scope plans from engine instances: `optimise all` probes four scopes through three engines, reusing the storage engine for system scope. Handler presence also differs from release eligibility; staged Docker adapters do not enable public cleanup. The refreshed [architecture](architecture.md) captures both boundaries.
+
+### 2026-09-17 11:06:01 IST — KUN-105
+
+- Publishing generated files to `gh-pages` with `GITHUB_TOKEN` does not trigger a new Pages build. The manual workflow mirrors the built artifact to that branch and explicitly deploys the same artifact, with Pages configured for GitHub Actions. Command reference generation constructs Commander without parsing or invoking actions, so builds cannot run cleanup.

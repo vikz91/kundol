@@ -18,6 +18,8 @@ kundol is a macOS-first CLI for developer-machine storage and generated project 
 
 ## Features
 
+Read the **[help manual](https://vikz91.github.io/kundol/)** for setup, command reference, safety, troubleshooting, and architecture.
+
 - **Storage:** published owner-tool cache rules with live checks and safe or explicit-review selection.
 - **Projects/repos:** review published generated-artifact rules under a supplied workdir. Safe targets such as `node_modules` and Rust `target` can be selected after live checks; `repos` uses the same handler and does not require Git.
 - **Docker context:** `optimise docker <context>` pins an explicit daemon and plans published Docker-context rules; no Docker resource rule is published yet, so it does not remove Docker data.

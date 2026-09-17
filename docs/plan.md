@@ -182,6 +182,12 @@ These rows are historical ideas, not current CLI behavior; any storage cleanup p
 |---|---|---|---|---|---|---|---|---|---|
 | KUN-104 | Documentation | Replace architecture prose with implementation-grounded Mermaid diagrams and concise code architecture bullets. | don | Codex + Aarav/Meera/Isha reviewers | 2026-09-17 10:28:16 IST | 2026-09-17 10:28:16 IST | 2026-09-17 10:30:49 IST | KUN-103 | Reworked architecture.md with component/sequence diagrams and concise linked code, scope, audit, and safety bullets. Three parallel source/doc reviews; 23 local links, fenced blocks, manual Mermaid review, and whitespace checks passed. Branch `codex/architecture-docs` uses updated `origin/main` per user direction because `develop` does not exist. |
 
+## Help manual task
+
+| ID | Area | Task | Status | Owner | Created at | Started at | Completed at | Dependencies | Notes |
+|---|---|---|---|---|---|---|---|---|---|
+| KUN-105 | Documentation | Build a searchable VitePress manual with generated CLI/rule references, Mermaid diagrams, and automatic GitHub Pages publication. | don | Codex + manual/review agents | 2026-09-17 10:55:00 IST | 2026-09-17 10:55:00 IST | 2026-09-17 11:08:00 IST | KUN-104 | Implemented manual and main-merge publication to gh-pages plus explicit Pages deployment. 218 tests, build, local links/assets, browser search, and both Mermaid diagrams passed. Repository Pages source configured for GitHub Actions; publication runs after merge. |
+
 ## Safety Requirements
 
 - Every destructive optimise command must scan first and print the exact cleanup plan before execution.

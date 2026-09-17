@@ -20,3 +20,14 @@ coverage/
 *.sqlite3
 
 bun.lockb
+
+# Generated manual pages and VitePress output
+website/.vitepress/cache/
+website/.vitepress/dist/
+website/reference/
+website/architecture.md
+website/usage.md
+website/registry.md
+website/contributing.md
+website/sandbox.md
+website/public/logo.png
