@@ -5,6 +5,7 @@ Merged pull requests to `main` are recorded here by the [changelog workflow](../
 ## v0.5.0 (2026-09-17)
 
 ### Changed
+- docs: publish searchable help manual with automatic GitHub Pages deployment ([#8](https://github.com/vikz91/kundol/pull/8)) — [@vikz91](https://github.com/vikz91) <!-- pr:8 -->
 - Add beta registry handlers and unified optimiser ([#7](https://github.com/vikz91/kundol/pull/7)) — [@vikz91](https://github.com/vikz91) <!-- pr:7 -->
 
 ## v0.4.0 (2026-09-15)
