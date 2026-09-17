@@ -1,16 +1,18 @@
 # Public Commands
 
 Created: 2026-06-14 00:33:03 IST
-Last updated: 2026-09-15 14:07:32 IST
+Last updated: 2026-09-17 12:00:00 IST
 Related tasks: `KUN-077`, `KUN-080`, `KUN-092`
 
 kundol is CLI-only. The cleanup group is British-spelled `optimise`; there is no `optimize` alias, dashboard, or public indexing/scan/clean command. Bare `kundol` prints a welcome banner. `tools` browses the JSON optimisation catalogue without running its rules.
 
 | Command | Current effect |
 |---|---|
-| `kundol optimise storage` | Probes published user-scope owner-tool cache rules, then offers safe suggestions and explicit review targets. |
-| `kundol optimise projects <workdir>` | Finds matching projects to depth 7 and probes published generated-path rules with live safety checks. |
-| `kundol optimise repos <workdir>` | Uses the same registry-backed scanner/cleanup handler as `projects`; Git is not required. |
+| `kundol optimise all --workdir <path> --docker-context <name>` | Builds one plan across user, workdir, pinned Docker-context, and system rules. Both scopes are mandatory; `--allow-beta` attempts the beta readiness gates in every scope. |
+| `kundol optimise storage` | Probes published user-scope owner-tool cache rules; `--allow-beta` also attempts the code-approved Yarn Classic cache review and reports every unavailable beta ID. |
+| `kundol optimise projects <workdir>` | Finds matching projects to depth 7 and probes published rules; `--allow-beta` adds two Linux-only Python environment review rules. |
+| `kundol optimise repos <workdir>` | Uses the same registry-backed scanner/cleanup handler and beta opt-in as `projects`; Git is not required. |
+| `kundol optimise docker <context>` | Pins one named Docker context and daemon identity; `--allow-beta` inventories unused networks and volumes as protected, non-removable resources. No force flag or broad prune. |
 | `kundol tools available` | Lists rules marked `published` in `registry/optimisations.json`. |
 | `kundol tools search <query>` | Searches published rule IDs, labels, descriptions, and categories. |
 | `kundol tools list --status <status>` | Lists `all`, `proposed`, `wip`, `beta`, or `published` rules; `all` is the default. |
@@ -19,17 +21,22 @@ kundol is CLI-only. The cleanup group is British-spelled `optimise`; there is no
 
 Catalogue commands read the bundled JSON and use each rule's current delivery status. They do not execute a rule or change its status. The request and issue commands print their URLs and open the browser when a platform opener is available.
 
-Each `optimise` command probes registry targets and prints a plan before selection, then reports and audits applied results. Storage, projects, and repos accept `y` for safe suggestions or displayed numbers for explicit review. `-f, --force` selects only safe, force-eligible targets after planning. There are no public `--dry-run`, `--apply`, `--json`, or `--max-depth` workflow flags. Standard `--help` and `--version` still work.
+Each `optimise` command prints a plan before selection, then reports and audits applied results. All five accept `--allow-beta` for exact code-approved beta rules; 64 other beta IDs are listed as unavailable instead of being hidden behind a summary. The `all` route is the explicit cross-scope form: it requires a workdir and Docker context, probes all four registry scopes, rejects overlapping targets, prints one combined plan, and collects one selection. It does not turn catalogue-only beta entries into executable handlers. Storage never invokes workdir, system, or Docker-context rules. All, storage, projects, and repos accept `y` for safe suggestions or displayed numbers for explicit review. Their `-f, --force` selects only safe, force-eligible targets after planning, even with beta opt-in. Docker requires a named context, has no force flag, and never selects protected inventory. Bare `optimise` only shows help. There are no public `--dry-run`, `--apply`, `--json`, or `--max-depth` workflow flags. Standard `--help` and `--version` still work.
 
 Without a TTY and without `-f`, an optimise command prints its plan, records cancellation, and exits 0. Apply failures return 70. Registry plans show known target footprint; reports show known reclaimed bytes for applied path targets. Owner-tool commands may have unknown sizes. See [usage.md](usage.md) and [context.md](context.md) for target selection and live checks.
 
 ```bash
+kundol optimise all --workdir ~/Projects --docker-context my-context
+kundol optimise all --workdir ~/Projects --docker-context my-context --allow-beta
 kundol optimise storage
 kundol optimise projects ~/Projects
+kundol optimise projects ~/Projects --allow-beta
 kundol optimise repos ~/Projects -f
+kundol optimise docker my-context
+kundol optimise docker my-context --allow-beta
 kundol tools available
 kundol tools search "pnpm"
-kundol tools list --status proposed
+kundol tools list --status beta
 kundol tools request
 kundol issue
 ```

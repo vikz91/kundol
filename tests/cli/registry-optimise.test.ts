@@ -216,6 +216,42 @@ describe("registry-backed optimise CLI", () => {
     expect(await exists(fakeDocker)).toBe(true);
   });
 
+  test("storage reviews a Bun whole-cache action only from an approved workspace and root", async () => {
+    const f = await fixture();
+    const workspace = path.join(f.root, "bun-workspace");
+    const customRoot = path.join(f.root, "approved-cache-root");
+    const cache = path.join(customRoot, "bun-cache");
+    await mkdir(workspace);
+    await writeFile(path.join(workspace, "package.json"), "{}");
+    await mkdir(cache, { recursive: true });
+    await writeFile(path.join(cache, "package.tgz"), "cache fixture");
+    await ageTarget(cache, [path.join(cache, "package.tgz")]);
+    const calls: string[] = [];
+    const runner = async (argv: readonly string[], cwd: string): Promise<RegistryCommandResult> => {
+      const signature = argv.join(" ");
+      calls.push(`${signature}@${cwd}`);
+      if (signature === "bun --version") return { exitCode: 0, stdout: "1.4.2", stderr: "" };
+      if (signature === "bun pm cache") return { exitCode: 0, stdout: cache, stderr: "" };
+      if (signature === "bun pm cache rm") return { exitCode: 0, stdout: "Cleared", stderr: "" };
+      return { exitCode: 1, stdout: "", stderr: "fixture tool unavailable" };
+    };
+    const forceOutput = capturedOutput();
+    await optimiseStorage({
+      output: forceOutput.output, homeDir: f.home, databasePath: f.databasePath,
+      registryCommandCwd: workspace, registryUserRoots: [customRoot], registryRunner: runner, registryNow: () => now,
+    }, { force: true });
+    expect(forceOutput.lines.join("\n")).toContain("Bun global package cache");
+    expect(calls.some((call) => call.startsWith("bun pm cache rm@"))).toBe(false);
+    const reviewOutput = capturedOutput();
+    await optimiseStorage({
+      output: reviewOutput.output, homeDir: f.home, databasePath: f.databasePath,
+      registryCommandCwd: workspace, registryUserRoots: [customRoot], registryRunner: runner, registryNow: () => now,
+      registrySelect: async (probe) => probe.candidates.filter((candidate) => candidate.ruleId === "store.bun.cache").map((candidate) => candidate.id),
+    }, { force: false });
+    expect(reviewOutput.lines.join("\n")).toContain("Removed/optimised: 1");
+    expect(calls).toContain(`bun pm cache rm@${workspace}`);
+  });
+
   test("a reviewed target replaced with an outside symlink is skipped", async () => {
     const f = await fixture();
     const project = path.join(f.workdir, "demo");

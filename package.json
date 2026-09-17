@@ -1,6 +1,6 @@
 {
   "name": "kundol",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "license": "MIT",
   "description": "A Bun + TypeScript CLI for optimising developer storage and project build artifacts.",
   "type": "module",
@@ -19,7 +19,9 @@
     "smoke:cli": "bun run scripts/smoke-cli.ts",
     "registry:new": "bun run scripts/create-registry-entry.ts",
     "registry:check": "bun run scripts/validate-optimisation-registry.ts",
-    "check": "bun run check:tools && bun run lint && bun run typecheck && bun run registry:check && bun test && bun run build:check && bun run smoke:cli",
+    "registry:programme": "bun run scripts/check-registry-programme.ts",
+    "registry:release": "bun run scripts/check-registry-programme.ts --release",
+    "check": "bun run check:tools && bun run lint && bun run typecheck && bun run registry:check && bun run registry:programme && bun test && bun run build:check && bun run smoke:cli",
     "prepare": "husky"
   },
   "dependencies": {

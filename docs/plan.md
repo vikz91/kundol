@@ -26,12 +26,12 @@ The current public command direction is CLI-only:
 
 - Remove the dashboard/TUI as a product surface.
 - Collapse cleanup workflows under British-spelled `optimise` command groups.
-- Use `kundol optimise storage`, `kundol optimise projects <workdir>`, and `kundol optimise repos <workdir>` as the public optimisation commands.
+- Use `kundol optimise storage`, `kundol optimise projects <workdir>`, `kundol optimise repos <workdir>`, and the explicit named-context `kundol optimise docker <context>` route as the public optimisation commands. No Docker resource rule is published yet.
 - Do not expose `--dry-run`, `--apply`, or `--no-dry-run` flags.
 - Every optimise run probes first, prints a cleanup plan, asks for target selection unless forced, rechecks live targets, executes selected actions, prints a final report, and audits the run.
 - Support only `-f, --force` to select safe, force-eligible targets after the scan/plan step.
 
-The active registry includes 20 published rules for shared package caches and project-generated paths; broader runtime and Docker rules remain proposals until their owner adapters and safety checks are implemented.
+The active registry has a published subset for shared package caches and project-generated paths; broader runtime and Docker rules remain proposals until their owner adapters and safety checks are implemented. [The 75-rule programme](registry-75-implementation-plan.md) tracks this implementation wave and split replacements.
 
 The pasted context originally named the product `DevShelf`; the MVP now uses `kundol` for the repository, CLI binary, and package name.
 

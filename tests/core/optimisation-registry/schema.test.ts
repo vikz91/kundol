@@ -7,10 +7,17 @@ const registry = parseOptimisationRegistry(await Bun.file(registryUrl).json());
 describe("optimisation registry", () => {
   test("covers every developer cleanup category with linked primary sources", () => {
     expect(registry.categories).toHaveLength(13);
-    expect(registry.rules).toHaveLength(95);
+    expect(registry.rules.length).toBeGreaterThanOrEqual(75);
+    expect(registry.rules.some((rule) => rule.id === "project.dotnet.obj" && rule.status === "published")).toBe(true);
+    expect(registry.rules.some((rule) => rule.id === "project.dotnet.bin" && rule.status === "beta")).toBe(true);
+    expect(registry.rules.some((rule) => rule.id === "project.dotnet.bin_obj")).toBe(false);
     expect(new Set(registry.rules.map((rule) => rule.categoryId))).toEqual(new Set(registry.categories.map((category) => category.id)));
     expect(registry.rules.every((rule) => rule.sourceRefs.length > 0)).toBe(true);
     expect(registry.rules.some((rule) => rule.status === "published")).toBe(true);
+    expect(registry.rules.filter((rule) => rule.status === "beta")).toHaveLength(69);
+    expect(registry.rules.filter((rule) => rule.status === "published")).toHaveLength(28);
+    expect(registry.rules.filter((rule) => rule.status === "proposed")).toHaveLength(0);
+    expect(registry.rules.filter((rule) => rule.status === "beta" && rule.review.tier === "protected")).toHaveLength(17);
     expect(registry.rules.every((rule) => !rule.id.startsWith("startup."))).toBe(true);
     expect(registry.schemaVersion).toBe(2);
     expect(registry.integration).toBe("engine_ready");
@@ -64,6 +71,8 @@ describe("optimisation registry", () => {
     volume.review.selection = "explicit";
     volume.action = { kind: "adapter", adapterId: "docker.volume.remove" };
     expect(optimisationRegistrySchema.safeParse(changed).success).toBe(false);
+    expect(registry.rules.filter((rule) => rule.status === "beta" && rule.review.tier === "protected")
+      .every((rule) => rule.review.selection === "none" && !rule.review.forceEligible && rule.action.kind === "none")).toBe(true);
   });
 
   test("requires live safety checks for suggested generated removal", () => {

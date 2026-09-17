@@ -6,6 +6,7 @@ import { scaffoldRegistryEntry, type RegistryEntryRequest } from "../../scripts/
 import { parseOptimisationRegistry } from "../../src/core/optimisation-registry/schema.ts";
 
 const registryText = await Bun.file(new URL("../../registry/optimisations.json", import.meta.url)).text();
+const baselineRuleCount = parseOptimisationRegistry(JSON.parse(registryText)).rules.length;
 const request: RegistryEntryRequest = {
   id: "store.example.cache",
   categoryId: "shared_stores",
@@ -19,7 +20,7 @@ describe("registry contribution scaffold", () => {
   test("adds a source and one protected catalogue-only proposal without reformatting existing rules", () => {
     const changed = scaffoldRegistryEntry(registryText, request);
     const parsed = parseOptimisationRegistry(JSON.parse(changed));
-    expect(parsed.rules).toHaveLength(96);
+    expect(parsed.rules).toHaveLength(baselineRuleCount + 1);
     expect(parsed.sources.example_cache).toEqual({ title: "Example cache owner guide", url: "https://example.com/cache" });
     expect(parsed.rules.at(-1)).toMatchObject({
       id: request.id,
