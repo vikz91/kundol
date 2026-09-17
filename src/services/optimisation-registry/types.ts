@@ -7,6 +7,7 @@ export interface RegistryCommandResult {
   exitCode: number;
   stdout: string;
   stderr: string;
+  truncated?: boolean;
 }
 
 export type RegistryCommandRunner = (argv: readonly string[], cwd: string) => Promise<RegistryCommandResult>;
@@ -14,6 +15,7 @@ export type RegistryCommandRunner = (argv: readonly string[], cwd: string) => Pr
 export interface RegistryEngineContext {
   homeDir: string;
   projectRoots: readonly string[];
+  workdirRoot?: string;
   userRoots?: readonly string[];
   commandCwd?: string;
 }
@@ -84,7 +86,8 @@ export interface RegistryApplyResult {
   auditWarnings: readonly string[];
 }
 
-export interface RegistryAdapterTarget {
+export interface RegistryAdapterResourceTarget {
+  kind?: "resource";
   ownerId: string;
   resourceId: string;
   fingerprint: string;
@@ -92,7 +95,18 @@ export interface RegistryAdapterTarget {
   evidence?: readonly string[];
 }
 
-export type RegistrySelectorAdapter = (rule: RegistryRule, context: RegistryEngineContext) => Promise<readonly RegistryAdapterTarget[]>;
+export interface RegistryAdapterPathTarget {
+  kind: "path";
+  absolutePath: string;
+  scopeRoot: string;
+  targetKind: "file" | "directory" | "either";
+  evidence?: readonly string[];
+}
+
+export type RegistryAdapterTarget = RegistryAdapterResourceTarget | RegistryAdapterPathTarget;
+export type RegistrySelectorList = (rule: RegistryRule, context: RegistryEngineContext) => Promise<readonly RegistryAdapterTarget[]>;
+export type RegistrySelectorLookup = (rule: RegistryRule, reviewed: RegistryTarget, context: RegistryEngineContext) => Promise<RegistryAdapterTarget | null>;
+export type RegistrySelectorAdapter = RegistrySelectorList | { list: RegistrySelectorList; lookup: RegistrySelectorLookup };
 export type RegistryActionAdapter = (rule: RegistryRule, candidate: RegistryCandidate, context: RegistryEngineContext) => Promise<{ reclaimedBytes?: number | null } | void>;
 export type RegistryValidator = (rule: RegistryRule, candidate: RegistryCandidate, context: RegistryEngineContext) => Promise<true | string>;
 

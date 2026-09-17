@@ -4,8 +4,10 @@ import { parseOptimisationRegistry, type OptimisationRegistry } from "../../core
 import { isApprovedOwnerCommandRule, isKnownActionCommand, isKnownProbeCommand, runRegistryCommand } from "./commands";
 import { capturePathTarget, findGeneratedTargets, hasProjectMarker, isApprovedGeneratedSelector, samePathIdentity } from "./path-targets";
 import { removeGeneratedPathSafely } from "./safe-removal";
+import { betaExecutionReadiness } from "./beta-execution";
 import type {
   RegistryActionAdapter,
+  RegistryAdapterTarget,
   RegistryApplyResult,
   RegistryAuditSink,
   RegistryCandidate,
@@ -25,6 +27,11 @@ import type {
 const BUILTIN_VALIDATORS = new Set(["target_exists", "path_in_scope", "not_symlink", "project_marker"]);
 const REQUIRED_GENERATED_VALIDATORS = ["target_exists", "path_in_scope", "not_symlink", "project_marker", "target_not_active"];
 const TIER_PRIORITY = { safe: 0, review: 1, protected: 2 } as const;
+const MAX_ADAPTER_TARGETS = 512;
+const MAX_IDENTITY_CHARS = 512;
+const MAX_EVIDENCE_ITEMS = 8;
+const MAX_EVIDENCE_CHARS = 512;
+const DEFAULT_PROBE_CONCURRENCY = 4;
 
 export interface RegistryEngineOptions {
   registry: unknown;
@@ -34,6 +41,7 @@ export interface RegistryEngineOptions {
   actionAdapters?: Readonly<Record<string, RegistryActionAdapter>>;
   validators?: Readonly<Record<string, RegistryValidator>>;
   audit: RegistryAuditSink;
+  probeConcurrency?: number;
 }
 
 interface StoredReview {
@@ -43,6 +51,20 @@ interface StoredReview {
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+function isCleanIdentity(value: string): boolean {
+  return value.length > 0 && value.length <= MAX_IDENTITY_CHARS &&
+    [...value].every((character) => character.codePointAt(0)! >= 32 && character.codePointAt(0)! !== 127);
+}
+
+function boundedEvidence(evidence: readonly string[] | undefined): readonly string[] {
+  if (!evidence) return [];
+  if (evidence.length > MAX_EVIDENCE_ITEMS || evidence.some((item) => typeof item !== "string" || item.length > MAX_EVIDENCE_CHARS ||
+    [...item].some((character) => character.codePointAt(0)! < 32 || character.codePointAt(0)! === 127))) {
+    throw new Error("selector adapter returned unsafe or unbounded evidence");
+  }
+  return evidence;
 }
 
 function deepFreeze<T>(value: T): T {
@@ -57,31 +79,50 @@ function targetId(ruleId: string, target: RegistryTarget): string {
   return `${ruleId}@${target.key}`;
 }
 
-function isOverlappingTarget(left: RegistryTarget, right: RegistryTarget): boolean {
-  if (left.key === right.key) return true;
-  if (left.kind !== "path" || right.kind !== "path") return false;
-  const leftToRight = path.relative(left.realPath, right.realPath);
-  const rightToLeft = path.relative(right.realPath, left.realPath);
-  return (leftToRight !== "" && !leftToRight.startsWith("..") && !path.isAbsolute(leftToRight)) ||
-    (rightToLeft !== "" && !rightToLeft.startsWith("..") && !path.isAbsolute(rightToLeft));
-}
-
-function preferCandidate(left: RegistryCandidate, right: RegistryCandidate): RegistryCandidate {
-  const tierDifference = TIER_PRIORITY[left.tier] - TIER_PRIORITY[right.tier];
-  if (tierDifference !== 0) return tierDifference > 0 ? left : right;
-  if (left.target.kind === "path" && right.target.kind === "path") {
-    const depthDifference = left.target.realPath.split(path.sep).length - right.target.realPath.split(path.sep).length;
-    if (depthDifference !== 0) return depthDifference < 0 ? left : right;
-  }
-  return left.id.localeCompare(right.id) <= 0 ? left : right;
+interface PathTrieNode {
+  selected: boolean;
+  descendants: number;
+  children: Map<string, PathTrieNode>;
 }
 
 function deduplicate(candidates: readonly RegistryCandidate[]): RegistryCandidate[] {
+  const ordered = [...candidates].sort((left, right) => {
+    const tier = TIER_PRIORITY[right.tier] - TIER_PRIORITY[left.tier];
+    if (tier !== 0) return tier;
+    if (left.target.kind === "path" && right.target.kind === "path") {
+      const depth = left.target.realPath.split(path.sep).length - right.target.realPath.split(path.sep).length;
+      if (depth !== 0) return depth;
+    }
+    return left.id.localeCompare(right.id);
+  });
+  const root: PathTrieNode = { selected: false, descendants: 0, children: new Map() };
+  const resourceKeys = new Set<string>();
   const unique: RegistryCandidate[] = [];
-  for (const candidate of [...candidates].sort((left, right) => left.id.localeCompare(right.id))) {
-    const overlapIndex = unique.findIndex((existing) => isOverlappingTarget(existing.target, candidate.target));
-    if (overlapIndex < 0) unique.push(candidate);
-    else unique[overlapIndex] = preferCandidate(unique[overlapIndex]!, candidate);
+  for (const candidate of ordered) {
+    if (candidate.target.kind === "resource") {
+      if (resourceKeys.has(candidate.target.key)) continue;
+      resourceKeys.add(candidate.target.key);
+      unique.push(candidate);
+      continue;
+    }
+    const segments = candidate.target.realPath.split(path.sep).filter(Boolean);
+    const ancestry = [root];
+    let cursor = root;
+    let overlaps = false;
+    for (const segment of segments) {
+      if (cursor.selected) { overlaps = true; break; }
+      let child = cursor.children.get(segment);
+      if (!child) {
+        child = { selected: false, descendants: 0, children: new Map() };
+        cursor.children.set(segment, child);
+      }
+      cursor = child;
+      ancestry.push(cursor);
+    }
+    if (overlaps || cursor.selected || cursor.descendants > 0) continue;
+    cursor.selected = true;
+    for (const node of ancestry) node.descendants += 1;
+    unique.push(candidate);
   }
   return unique.sort((left, right) => left.id.localeCompare(right.id));
 }
@@ -95,6 +136,7 @@ export class OptimisationRegistryEngine {
   private readonly actionAdapters: Readonly<Record<string, RegistryActionAdapter>>;
   private readonly validators: Readonly<Record<string, RegistryValidator>>;
   private readonly audit: RegistryAuditSink;
+  private readonly probeConcurrency: number;
   private readonly probes = new Map<string, RegistryProbeResult>();
   private readonly reviews = new Map<string, StoredReview>();
 
@@ -103,6 +145,7 @@ export class OptimisationRegistryEngine {
     this.context = deepFreeze({
       homeDir: path.resolve(options.context.homeDir),
       projectRoots: options.context.projectRoots.map((root) => path.resolve(root)),
+      ...(options.context.workdirRoot ? { workdirRoot: path.resolve(options.context.workdirRoot) } : {}),
       ...(options.context.userRoots ? { userRoots: options.context.userRoots.map((root) => path.resolve(root)) } : {}),
       ...(options.context.commandCwd ? { commandCwd: path.resolve(options.context.commandCwd) } : {}),
     });
@@ -112,25 +155,39 @@ export class OptimisationRegistryEngine {
     this.actionAdapters = options.actionAdapters ?? {};
     this.validators = options.validators ?? {};
     this.audit = options.audit;
+    this.probeConcurrency = options.probeConcurrency ?? DEFAULT_PROBE_CONCURRENCY;
+    if (!Number.isSafeInteger(this.probeConcurrency) || this.probeConcurrency < 1 || this.probeConcurrency > 8) {
+      throw new Error("probe concurrency must be an integer from 1 to 8");
+    }
   }
 
   async probe(options: { includeBeta?: boolean; ruleIds?: readonly string[] } = {}): Promise<RegistryProbeResult> {
+    const requested = options.ruleIds ? new Set(options.ruleIds) : null;
+    const rules = this.registry.rules.filter((rule) => !requested || requested.has(rule.id));
+    const results: ({ candidates: RegistryCandidate[] } | { skipped: RegistryRuleSkip })[] = new Array(rules.length);
+    let next = 0;
+    const worker = async () => {
+      while (next < rules.length) {
+        const index = next++;
+        const rule = rules[index]!;
+        const readiness = this.ruleReadiness(rule, options.includeBeta ?? false);
+        if (readiness !== true) {
+          results[index] = { skipped: { ruleId: rule.id, reason: readiness } };
+          continue;
+        }
+        try {
+          results[index] = { candidates: await this.probeRule(rule) };
+        } catch (error) {
+          results[index] = { skipped: { ruleId: rule.id, reason: errorMessage(error) } };
+        }
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(this.probeConcurrency, rules.length) }, () => worker()));
     const candidates: RegistryCandidate[] = [];
     const skippedRules: RegistryRuleSkip[] = [];
-    const requested = options.ruleIds ? new Set(options.ruleIds) : null;
-    for (const rule of this.registry.rules) {
-      if (requested && !requested.has(rule.id)) continue;
-      const readiness = this.ruleReadiness(rule, options.includeBeta ?? false);
-      if (readiness !== true) {
-        skippedRules.push({ ruleId: rule.id, reason: readiness });
-        continue;
-      }
-      try {
-        const found = await this.probeRule(rule);
-        candidates.push(...found);
-      } catch (error) {
-        skippedRules.push({ ruleId: rule.id, reason: errorMessage(error) });
-      }
+    for (const result of results) {
+      if ("candidates" in result) candidates.push(...result.candidates);
+      else skippedRules.push(result.skipped);
     }
     const unique = deduplicate(candidates);
     const result: RegistryProbeResult = deepFreeze({
@@ -180,7 +237,8 @@ export class OptimisationRegistryEngine {
     const auditWarnings: string[] = [];
     for (const candidate of stored.selected) {
       const rule = this.registry.rules.find((entry) => entry.id === candidate.ruleId);
-      if (!rule || (rule.status !== "published" && rule.status !== "beta") || this.registry.integration !== "engine_ready") {
+      if (!rule || (rule.status !== "published" &&
+        (rule.status !== "beta" || betaExecutionReadiness(rule) !== true)) || this.registry.integration !== "engine_ready") {
         const reason = "rule is no longer executable";
         skipped.push({ candidate, reason });
         await this.safeAudit({ phase: "skipped", ruleId: candidate.ruleId, candidateId: candidate.id, targetKey: candidate.target.key, reason }, auditWarnings);
@@ -229,6 +287,10 @@ export class OptimisationRegistryEngine {
     if (this.registry.integration !== "engine_ready") return "registry is catalogue-only";
     if (rule.status === "proposed" || rule.status === "wip") return `rule status ${rule.status} is not executable`;
     if (rule.status === "beta" && !includeBeta) return "beta rule requires explicit experimental opt-in";
+    if (rule.status === "beta") {
+      const betaReadiness = betaExecutionReadiness(rule);
+      if (betaReadiness !== true) return betaReadiness;
+    }
     if (rule.selector.kind === "adapter" && !this.selectorAdapters[rule.selector.adapterId]) return `selector adapter unavailable: ${rule.selector.adapterId}`;
     if (rule.action.kind === "adapter" && !this.actionAdapters[rule.action.adapterId]) return `action adapter unavailable: ${rule.action.adapterId}`;
     if (rule.action.kind === "command" && !isKnownActionCommand(rule.action.argv)) return "command action is not code-approved";
@@ -258,6 +320,7 @@ export class OptimisationRegistryEngine {
     } else if (rule.selector.kind === "tool_cache") {
       const result = await this.runner(rule.selector.pathCommand.argv, cwd);
       if (result.exitCode !== 0) throw new Error(`cache path probe failed: ${result.stderr || result.stdout}`);
+      if (result.truncated) throw new Error("cache path probe output was truncated");
       const rawPath = result.stdout.trim();
       if (!path.isAbsolute(rawPath) || rawPath.includes("\n") || rawPath.includes("\r")) throw new Error("cache path probe did not return one absolute path");
       const allowedRoots = [this.context.homeDir, ...(this.context.userRoots ?? [])];
@@ -275,23 +338,9 @@ export class OptimisationRegistryEngine {
     } else {
       const adapter = this.selectorAdapters[rule.selector.adapterId];
       if (!adapter) throw new Error(`selector adapter unavailable: ${rule.selector.adapterId}`);
-      targets = (await adapter(rule, this.context)).map((found) => {
-        if (!found.ownerId || !found.resourceId || !found.fingerprint ||
-          (found.sizeBytes !== undefined && found.sizeBytes !== null && (!Number.isFinite(found.sizeBytes) || found.sizeBytes < 0))) {
-          throw new Error("selector adapter returned an incomplete resource identity");
-        }
-        return {
-          target: {
-            kind: "resource",
-            key: `resource:${JSON.stringify([rule.scope, found.ownerId, found.resourceId])}`,
-            ownerId: found.ownerId,
-            resourceId: found.resourceId,
-            fingerprint: found.fingerprint,
-            sizeBytes: found.sizeBytes ?? null,
-          } satisfies RegistryResourceTarget,
-          evidence: found.evidence ?? [],
-        };
-      });
+      const found = typeof adapter === "function" ? await adapter(rule, this.context) : await adapter.list(rule, this.context);
+      if (found.length > MAX_ADAPTER_TARGETS) throw new Error("selector adapter inventory exceeded its record budget");
+      targets = await Promise.all(found.map((entry) => this.captureAdapterTarget(rule, entry)));
     }
     const candidates: RegistryCandidate[] = [];
     for (const { target, evidence } of targets) {
@@ -316,6 +365,7 @@ export class OptimisationRegistryEngine {
     for (const command of rule.probeCommands ?? []) {
       const result = await this.runner(command.argv, cwd);
       if (result.exitCode !== 0) throw new Error(`probe failed: ${result.stderr || result.stdout || command.argv.join(" ")}`);
+      if (result.truncated) throw new Error("probe output was truncated");
     }
   }
 
@@ -329,7 +379,19 @@ export class OptimisationRegistryEngine {
   }
 
   private async probeSelectedCandidate(rule: RegistryRule, reviewed: RegistryCandidate): Promise<RegistryCandidate | null> {
-    if (reviewed.target.kind !== "path" || rule.selector.kind === "adapter") {
+    if (rule.selector.kind === "adapter") {
+      const adapter = this.selectorAdapters[rule.selector.adapterId];
+      if (!adapter) return null;
+      if (typeof adapter === "function") return (await this.probeRule(rule)).find((entry) => entry.id === reviewed.id) ?? null;
+      // A targeted lookup owns its fresh capability/state check; repeating an optional
+      // whole-owner inventory command for each selection would make apply quadratic.
+      const found = await adapter.lookup(rule, reviewed.target, this.context);
+      if (!found) return null;
+      const { target, evidence } = await this.captureAdapterTarget(rule, found);
+      if (target.key !== reviewed.target.key) return null;
+      return this.makeCandidate(rule, target, evidence);
+    }
+    if (reviewed.target.kind !== "path") {
       return (await this.probeRule(rule)).find((entry) => entry.id === reviewed.id) ?? null;
     }
     await this.runProbeCommands(rule);
@@ -347,6 +409,7 @@ export class OptimisationRegistryEngine {
       if (![this.context.homeDir, ...(this.context.userRoots ?? [])].includes(reviewed.target.scopeRoot)) return null;
       const result = await this.runner(rule.selector.pathCommand.argv, this.context.commandCwd ?? this.context.homeDir);
       if (result.exitCode !== 0) throw new Error(`cache path probe failed: ${result.stderr || result.stdout}`);
+      if (result.truncated) throw new Error("cache path probe output was truncated");
       const rawPath = result.stdout.trim();
       if (!path.isAbsolute(rawPath) || rawPath.includes("\n") || rawPath.includes("\r")) throw new Error("cache path probe did not return one absolute path");
       if (path.resolve(rawPath) !== targetPath) return null;
@@ -360,10 +423,43 @@ export class OptimisationRegistryEngine {
     }
   }
 
+  private async captureAdapterTarget(rule: RegistryRule, found: RegistryAdapterTarget): Promise<{ target: RegistryTarget; evidence: readonly string[] }> {
+    if (found.kind === "path") {
+      const scopeRoot = path.resolve(found.scopeRoot);
+      const approvedRoots = rule.scope === "workdir" ? this.context.projectRoots :
+        rule.scope === "user" ? [this.context.homeDir, ...(this.context.userRoots ?? [])] : [];
+      if (!approvedRoots.includes(scopeRoot)) throw new Error("adapter path scope root is not approved for this rule");
+      if (scopeRoot === path.parse(scopeRoot).root || (rule.scope === "workdir" && scopeRoot === this.context.homeDir)) {
+        throw new Error("adapter path scope root is too broad");
+      }
+      if (rule.scope === "workdir" && this.context.workdirRoot) {
+        const relative = path.relative(this.context.workdirRoot, scopeRoot);
+        if (relative.startsWith("..") || path.isAbsolute(relative)) throw new Error("adapter project root escapes supplied workdir");
+      }
+      if (!path.isAbsolute(found.absolutePath)) throw new Error("adapter path must be absolute");
+      const target = await capturePathTarget(found.absolutePath, scopeRoot, found.targetKind, false);
+      return { target, evidence: boundedEvidence(found.evidence) };
+    }
+    if (!isCleanIdentity(found.ownerId) || !isCleanIdentity(found.resourceId) || !isCleanIdentity(found.fingerprint) ||
+      (found.sizeBytes !== undefined && found.sizeBytes !== null && (!Number.isSafeInteger(found.sizeBytes) || found.sizeBytes < 0))) {
+      throw new Error("selector adapter returned an incomplete resource identity");
+    }
+    const target: RegistryResourceTarget = {
+      kind: "resource",
+      key: `resource:${JSON.stringify([rule.scope, found.ownerId, found.resourceId])}`,
+      ownerId: found.ownerId,
+      resourceId: found.resourceId,
+      fingerprint: found.fingerprint,
+      sizeBytes: found.sizeBytes ?? null,
+    };
+    return { target, evidence: boundedEvidence(found.evidence) };
+  }
+
   private async checkValidators(rule: RegistryRule, candidate: RegistryCandidate): Promise<true | string> {
     for (const validatorId of rule.validators) {
       const custom = this.validators[validatorId];
-      if (custom && (candidate.target.kind === "resource" || !BUILTIN_VALIDATORS.has(validatorId))) {
+      if (custom && (candidate.target.kind === "resource" || !BUILTIN_VALIDATORS.has(validatorId) ||
+        (validatorId === "project_marker" && rule.selector.kind === "adapter"))) {
         const result = await custom(rule, candidate, this.context);
         if (result !== true) return result;
         continue;

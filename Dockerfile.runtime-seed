@@ -1,0 +1,41 @@
+# Real owner-generated artifacts; no proposed cleanup runs during image build.
+# .NET 10 uses Ubuntu Noble, so the other runtimes are installed into one
+# compatible glibc image. Package versions are recorded in the seed manifest.
+FROM oven/bun:1@sha256:9114c058aeae42162ee16dd5084b95fe9473970bb6bcb5b232ab1630f0546895 AS bun-source
+FROM mcr.microsoft.com/dotnet/sdk:10.0.302-noble
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates git nodejs npm openjdk-21-jdk-headless maven \
+    python3 python3-venv python3-pip golang-go \
+    && rm -rf /var/lib/apt/lists/*
+RUN npm install --global --ignore-scripts pnpm@10.20.0
+COPY --from=bun-source /usr/local/bin/bun /usr/local/bin/bun
+
+RUN groupadd --gid 10001 fixture && useradd --uid 10001 --gid fixture --home-dir /sandbox/home fixture \
+    && mkdir -p /sandbox/home /sandbox/projects /sandbox/tmp /opt/kundol \
+    && chown -R fixture:fixture /sandbox /opt/kundol
+ENV HOME=/sandbox/home \
+    TMPDIR=/sandbox/tmp \
+    KUNDOL_RUNTIME_SEED_CONTAINER=1 \
+    DOTNET_CLI_TELEMETRY_OPTOUT=1
+WORKDIR /opt/kundol
+COPY --chown=fixture:fixture scripts/seed-runtime-artifacts.mjs ./scripts/seed-runtime-artifacts.mjs
+USER fixture
+
+# Network is used only at build time for pinned public package restores.
+# The run command can be executed with --network none and no mounts/socket.
+RUN node scripts/seed-runtime-artifacts.mjs --seed
+ENV NUGET_PACKAGES=/sandbox/home/.nuget/packages \
+    NUGET_HTTP_CACHE_PATH=/sandbox/home/.nuget/http-cache \
+    PIP_CACHE_DIR=/sandbox/home/.cache/pip \
+    GOPATH=/sandbox/home/go \
+    GOCACHE=/sandbox/home/.cache/go-build
+
+# Copy CLI code after expensive owner restores, preserving image-layer caching.
+COPY --chown=fixture:fixture package.json bun.lock ./
+RUN bun install --frozen-lockfile --ignore-scripts
+COPY --chown=fixture:fixture src ./src
+COPY --chown=fixture:fixture registry ./registry
+COPY --chown=fixture:fixture scripts ./scripts
+
+CMD ["node", "scripts/seed-runtime-artifacts.mjs", "--verify"]

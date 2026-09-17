@@ -3,7 +3,7 @@
 Created: 2026-06-13 07:21:12 IST
 Last updated: 2026-09-15 16:12:23 IST
 
-For implemented behavior in this checkout, start with [usage](usage.md), [public commands](commands.md), and [codebase context](context.md). The three public cleanup routes use the JSON registry engine; startup and earlier hardcoded cleanup paths have been retired. Try project cleanup against disposable files with the [Docker sandbox](demo/docker-sandbox.md). Research pages distinguish published rules from future work. [Homebrew readiness](homebrew-publishing-readiness.md) dates its release and formula status so a later tag or PR merge calls for re-verification; dated [learnings](learnings.md) and [plan](plan.md) entries preserve historical decisions.
+For implemented behavior in this checkout, start with [usage](usage.md), [public commands](commands.md), and [codebase context](context.md). The five public optimisation routes use the JSON registry engine; `optimise all` requires an explicit workdir and Docker context, and the standalone Docker route has no published Docker rule yet. Startup and earlier hardcoded cleanup paths have been retired. Try project cleanup against disposable files with the [Docker sandbox](demo/docker-sandbox.md). The [75-rule implementation plan](registry-75-implementation-plan.md) separates staged modules from published behavior. [Homebrew readiness](homebrew-publishing-readiness.md) dates its release and formula status so a later tag or PR merge calls for re-verification; dated [learnings](learnings.md) and [plan](plan.md) entries preserve historical decisions.
 
 | Area | Pages |
 |---|---|

@@ -260,7 +260,25 @@ describe("optimisation registry probe, review, and action engines", () => {
     beta.rules[0]!.status = "beta";
     const betaEngine = engineFor(beta, fixture, []);
     expect((await betaEngine.probe()).candidates).toHaveLength(0);
-    expect((await betaEngine.probe({ includeBeta: true })).candidates).toHaveLength(1);
+    const optedIn = await betaEngine.probe({ includeBeta: true });
+    expect(optedIn.candidates).toHaveLength(0);
+    expect(optedIn.skippedRules[0]?.reason).toBe("beta rule has no code-approved executable release");
+  });
+
+  test("beta status without code approval cannot run owner probes even with engine opt-in", async () => {
+    const fixture = await tempFixture();
+    const approved = new Set(["store.yarn.cache", "project.python.virtual_envs", "project.python.test_envs", "docker.network.unused", "docker.volume.unused"]);
+    const betaIds = catalogue.rules.filter((rule) => rule.status === "beta" && !approved.has(rule.id)).map((rule) => rule.id);
+    const engine = new OptimisationRegistryEngine({
+      registry: catalogue,
+      context: { homeDir: fixture.home, projectRoots: [fixture.project] },
+      runner: async () => { throw new Error("beta must not run an owner command"); },
+      audit: async () => { throw new Error("beta must not audit an action"); },
+    });
+    const result = await engine.probe({ includeBeta: true, ruleIds: betaIds });
+    expect(result.candidates).toHaveLength(0);
+    expect(result.skippedRules).toHaveLength(64);
+    expect(result.skippedRules.every((entry) => entry.reason === "beta rule has no code-approved executable release")).toBe(true);
   });
 
   test("dispatches owner resources by stable identity and skips a changed resource", async () => {
@@ -322,10 +340,11 @@ describe("optimisation registry probe, review, and action engines", () => {
     const rejected = engineFor(unsafe, fixture, []);
     expect((await rejected.probe()).skippedRules[0]?.reason).toBe("generated selector is not code-approved");
 
-    const releaseOutput = activeRegistry("project.dotnet.bin_obj");
+    const releaseOutput = activeRegistry("project.dotnet.bin");
     const releaseRule = releaseOutput.rules[0]!;
     if (releaseRule.selector.kind !== "generated_path") throw new Error("expected path selector");
-    releaseRule.selector.targetKind = "directory";
+    releaseRule.review = { tier: "safe", selection: "suggested", forceEligible: true };
+    releaseRule.validators = releaseRule.validators.filter((validator) => validator !== "not_release_output");
     const releaseEngine = engineFor(releaseOutput, fixture, []);
     expect((await releaseEngine.probe()).skippedRules[0]?.reason).toBe("generated selector is not code-approved");
 

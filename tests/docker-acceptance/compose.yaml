@@ -1,0 +1,45 @@
+name: kundol-docker-acceptance
+
+services:
+  daemon:
+    image: docker:29.8.0-dind-rootless
+    hostname: daemon
+    # Rootless DinD still needs this broad host-kernel privilege. The runner
+    # refuses to start without a separate, exact opt-in.
+    privileged: true
+    environment:
+      DOCKER_TLS_CERTDIR: /certs
+    volumes:
+      - client-certs:/certs/client
+    networks:
+      - private
+    healthcheck:
+      test: ["CMD", "docker", "info"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  acceptance:
+    build:
+      context: ../..
+      dockerfile: tests/docker-acceptance/Dockerfile
+    depends_on:
+      daemon:
+        condition: service_healthy
+    environment:
+      KUNDOL_ACCEPTANCE_INNER: isolated-client
+      KUNDOL_EXPECTED_ENDPOINT: tcp://daemon:2376
+      HOME: /sandbox/home
+      TMPDIR: /sandbox/tmp
+    volumes:
+      - client-certs:/certs/client:ro
+    networks:
+      - private
+    command: ["bun", "test", "tests/docker-acceptance/acceptance.test.ts"]
+
+networks:
+  private:
+    internal: true
+
+volumes:
+  client-certs: {}

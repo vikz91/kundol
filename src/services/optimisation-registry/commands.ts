@@ -70,12 +70,13 @@ export function isApprovedOwnerCommandRule(rule: RegistryRule): boolean {
 const MAX_OUTPUT_BYTES = 64 * 1024;
 const COMMAND_TIMEOUT_MS = 15_000;
 
-async function readBounded(stream: ReadableStream<Uint8Array> | null): Promise<string> {
-  if (!stream) return "";
+async function readBounded(stream: ReadableStream<Uint8Array> | null): Promise<{ text: string; truncated: boolean }> {
+  if (!stream) return { text: "", truncated: false };
   const reader = stream.getReader();
   const decoder = new TextDecoder();
   let output = "";
   let remaining = MAX_OUTPUT_BYTES;
+  let truncated = false;
   try {
     while (true) {
       const { done, value } = await reader.read();
@@ -84,13 +85,16 @@ async function readBounded(stream: ReadableStream<Uint8Array> | null): Promise<s
         const slice = value.subarray(0, remaining);
         output += decoder.decode(slice, { stream: true });
         remaining -= slice.byteLength;
+        if (slice.byteLength < value.byteLength) truncated = true;
+      } else if (value.byteLength > 0) {
+        truncated = true;
       }
     }
     output += decoder.decode();
   } finally {
     reader.releaseLock();
   }
-  return output;
+  return { text: output, truncated };
 }
 
 export const runRegistryCommand: RegistryCommandRunner = async (argv, cwd): Promise<RegistryCommandResult> => {
@@ -107,7 +111,12 @@ export const runRegistryCommand: RegistryCommandRunner = async (argv, cwd): Prom
         readBounded(proc.stderr),
         proc.exited,
       ]);
-      return { exitCode: timedOut ? 124 : exitCode, stdout, stderr: timedOut ? `${stderr}\ncommand timed out` : stderr };
+      return {
+        exitCode: timedOut ? 124 : exitCode,
+        stdout: stdout.text,
+        stderr: timedOut ? `${stderr.text}\ncommand timed out` : stderr.text,
+        truncated: stdout.truncated || stderr.truncated,
+      };
     } finally {
       clearTimeout(timer);
     }

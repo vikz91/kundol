@@ -1,16 +1,16 @@
 # Docker Cleanup
 
-The current public `kundol optimise storage` route probes published user-scope owner-tool cache rules. It does not call `docker system prune` or act on Docker containers, images, networks, volumes, or Desktop disk storage. The Docker rules in the [optimisation registry](../registry/optimisations.json) remain proposed or protected, so `kundol tools list --status proposed` can display them but no public command applies them.
+`kundol optimise storage` probes user-scope owner-tool caches and never calls `docker system prune`. The separate `kundol optimise docker <context>` route resolves an explicit named Docker endpoint and daemon identity and clears ambient Docker overrides. `kundol optimise all --workdir <path> --docker-context <name>` uses the same pinned identity inside its combined plan; it never falls back to an ambient or guessed context. No Docker rule is published yet; `--allow-beta` can inventory only protected unused networks and volumes in that pinned context, never remove them. Docker Desktop disk storage is protected and never a direct deletion target.
 
 The [first-time sandbox](demo/docker-sandbox.md) exercises generated-project cleanup. Earlier fake Docker-prune fixtures have been retired; the image does not mount the host Docker socket, and the public storage route does not prune Docker resources.
 
 ## Future resource-level design
 
-A future Docker flow should inventory exact resource IDs, sizes when known, active mounts, labels, Compose ownership, and retention risks before offering a plan. It must recheck live use immediately before any selected action and record failures.
+Staged, unpublished Docker adapters parse bounded exact IDs/names, mounts, labels, Compose ownership, and retention risks. They recheck daemon identity and live resource state at targeted lookup. `optimise docker <context> --allow-beta` exposes only protected network and volume inventories, with no action; a stopped-container adapter is staged but not code-approved for beta execution. Image/Compose/BuildKit actions likewise remain inactive pending private-daemon acceptance of real Docker CLI behavior and owner races. Ordinary Docker-in-Docker requires a privileged service, which is not authorized for this programme without separate risk approval; fixture tests alone do not publish these rules.
 
 | Registry tier | Proposed treatment |
 |---|---|
 | Review, explicit selection | Stopped containers, dangling/unused images, BuildKit cache, and stopped Compose resources after checking use, mounts, and ownership. |
 | Protected, inventory only | Unmounted volumes and the Docker Desktop disk image; running or mounted resources remain protected. |
 
-The proposed volume rule has no delete action. Volume removal would require a dedicated opt-in and explicit confirmation. A missing CLI or stopped daemon should produce a clear skip or warning when Docker handlers are eventually implemented. See [registry policy](optimisation-registry.md) and [current CLI usage](usage.md).
+The beta-catalogue volume rule is protected and has no delete action. Volume removal would require a separate policy, dedicated opt-in, and explicit confirmation. A missing CLI, stopped daemon, changed context, or incomplete inventory fails closed. See [registry policy](optimisation-registry.md), [the 75-rule plan](registry-75-implementation-plan.md), and [current CLI usage](usage.md).

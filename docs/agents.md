@@ -1,7 +1,7 @@
 # kundol Agent Guide
 
 Created: 2026-06-13 07:21:12 IST
-Last updated: 2026-09-15 16:06:02 IST
+Last updated: 2026-09-17 12:00:00 IST
 
 kundol is a Bun + TypeScript macOS-first CLI for storage, generated-project-file optimisation, and catalogue discovery. [Usage](usage.md) explains first use; [context](context.md) maps the implementation; [commands](commands.md) defines the public CLI. The old TUI and project-discovery commands are not public.
 
@@ -33,8 +33,8 @@ Allowed statuses are `todo`, `in progress`, `don`, and `cancelled`. Use `don` in
 
 ## Current public behavior
 
-- Bare `kundol` prints a welcome banner. `optimise storage|projects|repos` runs registry plans; `tools available|search|list|request` browses or requests catalogue entries; `issue` opens GitHub's chooser.
-- Every optimise run probes and prints a plan. Storage/projects/repos accept `y` for safe suggestions or displayed numbers for explicit review. `-f` selects only safe, force-eligible targets after planning. There is no public `--dry-run`, `--apply`, `--json`, or `--max-depth` workflow flag.
+- Bare `kundol` prints a welcome banner and bare `optimise` prints help. `optimise all|storage|projects|repos|docker` runs registry plans; all requires `--workdir` and `--docker-context`, while Docker requires a named context and currently has no published resource rule. `tools available|search|list|request` browses or requests catalogue entries; `issue` opens GitHub's chooser.
+- Every optimise run probes and prints a plan. All/storage/projects/repos accept `y` for safe suggestions or displayed numbers for explicit review. `-f` selects only safe, force-eligible targets after planning. The all route produces one cross-scope plan and refuses overlaps. There is no public `--dry-run`, `--apply`, `--json`, or `--max-depth` workflow flag.
 - All cleanup routes use published registry rules. `repos` uses the same project handler without Git filtering. Earlier indexing, scan/clean, project-registry, archive, storage, and startup modules have been retired.
 - SQLite actions and session logs live under `$HOME/.kundol`. Do not revive removed TUI, compact/archive, daemon, or Docker volume purge scope without a user request or new plan task.
 

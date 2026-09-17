@@ -101,6 +101,72 @@ describe("registry probe and apply traversal costs", () => {
     expect(activityChecks).toBe(3 * projects.length);
   });
 
+  test("looks up selected adapter resources without repeating the whole inventory", async () => {
+    const { home } = await fixture();
+    const registry = structuredClone(catalogue);
+    registry.integration = "engine_ready";
+    registry.rules = registry.rules.filter((rule) => rule.id === "docker.image.unused");
+    registry.rules[0]!.status = "published";
+    let lists = 0;
+    let lookups = 0;
+    const targets = Array.from({ length: 64 }, (_, index) => ({
+      ownerId: "docker:test-daemon", resourceId: `sha256:image-${index}`, fingerprint: "unused-v1", sizeBytes: 1,
+    }));
+    const engine = new OptimisationRegistryEngine({
+      registry,
+      context: { homeDir: home, projectRoots: [] },
+      selectorAdapters: {
+        "docker.images.unused": {
+          list: async () => { lists++; return targets; },
+          lookup: async (_rule, reviewed) => {
+            lookups++;
+            return reviewed.kind === "resource" ? targets.find((target) => target.resourceId === reviewed.resourceId) ?? null : null;
+          },
+        },
+      },
+      actionAdapters: { "docker.image.remove_selected": async () => ({ reclaimedBytes: 1 }) },
+      validators: { tool_available: async () => true, resource_still_unused: async () => true, target_exists: async () => true },
+      audit: async () => {},
+    });
+    const plan = await engine.probe();
+    expect(plan.candidates).toHaveLength(targets.length);
+    const review = engine.review(plan, { force: false, confirmed: true, selectedIds: plan.candidates.map((candidate) => candidate.id) });
+    const result = await engine.apply(review);
+    expect(result.applied).toHaveLength(targets.length);
+    expect(lists).toBe(1);
+    expect(lookups).toBe(targets.length);
+  });
+
+  test("runs independent read-only probes with a bounded concurrency limit", async () => {
+    const { home } = await fixture();
+    const ids = ["apple.xcode.archive", "docker.network.unused", "docker.volume.unused", "docker.desktop.disk_image",
+      "vm.local_cluster.image", "vm.disk", "ai.duplicate_weights", "ai.open_webui.data"];
+    const registry = structuredClone(catalogue);
+    registry.integration = "engine_ready";
+    registry.rules = registry.rules.filter((rule) => ids.includes(rule.id));
+    for (const rule of registry.rules) rule.status = "published";
+    let active = 0;
+    let maximum = 0;
+    const selectorAdapters = Object.fromEntries(registry.rules.map((rule) => {
+      if (rule.selector.kind !== "adapter") throw new Error("expected protected resource adapter");
+      return [rule.selector.adapterId, async () => {
+        active++;
+        maximum = Math.max(maximum, active);
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        active--;
+        return [{ ownerId: "disposable:test", resourceId: rule.id, fingerprint: "v1" }];
+      }];
+    }));
+    const engine = new OptimisationRegistryEngine({
+      registry, context: { homeDir: home, projectRoots: [] }, selectorAdapters,
+      probeConcurrency: 4, audit: async () => {},
+    });
+    const plan = await engine.probe();
+    expect(plan.candidates).toHaveLength(ids.length);
+    expect(maximum).toBe(4);
+    expect(active).toBe(0);
+  });
+
   test("CLI quiet-period rejection leaves recent generated directories out of the plan", async () => {
     const { root, home } = await fixture();
     const { project } = await projectWithTarget(root, "recent-project");

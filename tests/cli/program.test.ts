@@ -27,18 +27,40 @@ describe("kundol CLI program", () => {
   test("registers the target optimise subcommands", () => {
     const optimiseCommand = createProgram().commands.find((command) => command.name() === "optimise");
     expect(optimiseCommand).toBeDefined();
-    expect(optimiseCommand?.commands.map((command) => command.name()).sort()).toEqual(["projects", "repos", "storage"]);
+    expect(optimiseCommand?.commands.map((command) => command.name()).sort()).toEqual(["all", "docker", "projects", "repos", "storage"]);
     expect(optimiseCommand?.commands.some((command) => command.name() === "startup")).toBe(false);
   });
 
-  test("optimise commands expose only force as a workflow flag", () => {
+  test("bare optimise shows help without running a scope", async () => {
+    const optimiseCommand = createProgram().commands.find((command) => command.name() === "optimise");
+    expect(optimiseCommand).toBeDefined();
+    const output: string[] = [];
+    optimiseCommand?.configureOutput({ writeOut: (message) => { output.push(message); } });
+
+    await optimiseCommand?.parseAsync([], { from: "user" });
+
+    expect(output.join("")).toContain("Usage: kundol optimise");
+    expect(output.join("")).toContain("all [options]");
+  });
+
+  test("filesystem optimise commands expose force and beta opt-in, while Docker stays review-only", () => {
     const optimiseCommand = createProgram().commands.find((command) => command.name() === "optimise");
     expect(optimiseCommand).toBeDefined();
 
     for (const subcommand of optimiseCommand?.commands ?? []) {
       const help = subcommand.helpInformation();
-      expect(subcommand.options.map((option) => option.long)).toEqual(["--force"]);
-      expect(help).toContain("-f, --force");
+      if (subcommand.name() === "docker") {
+        expect(subcommand.options.map((option) => option.long)).toEqual(["--allow-beta"]);
+        expect(help).not.toContain("-f, --force");
+      } else if (subcommand.name() === "all") {
+        expect(subcommand.options.map((option) => option.long)).toEqual(["--workdir", "--docker-context", "--force", "--allow-beta"]);
+        expect(subcommand.options.filter((option) => option.mandatory).map((option) => option.long)).toEqual(["--workdir", "--docker-context"]);
+        expect(help).toContain("-f, --force");
+      } else {
+        expect(subcommand.options.map((option) => option.long)).toEqual(["--force", "--allow-beta"]);
+        expect(help).toContain("-f, --force");
+      }
+      expect(help).toContain("--allow-beta");
       expect(help).not.toContain("--dry-run");
       expect(help).not.toContain("--apply");
       expect(help).not.toContain("--no-dry-run");
