@@ -1,6 +1,6 @@
 {
   "name": "kundol",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "license": "MIT",
   "description": "A Bun + TypeScript CLI for optimising developer storage and project build artifacts.",
   "type": "module",
@@ -10,6 +10,7 @@
   },
   "scripts": {
     "dev": "bun run src/cli/index.ts",
+    "register:cli": "bun run scripts/register-cli.ts",
     "test": "bun test",
     "check:tools": "bun run scripts/check-tool-versions.ts",
     "lint": "eslint src tests scripts eslint.config.mjs --max-warnings 0",

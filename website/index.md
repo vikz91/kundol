@@ -27,7 +27,7 @@ features:
 
 ## Choose a starting point
 
-- [Getting started](./getting-started.md): build from cloned/downloaded source or download a macOS executable. Homebrew is coming soon.
+- [Getting started](./getting-started.md): install from cloned/downloaded source with `bun run register:cli` or download a macOS executable. Homebrew is coming soon.
 - [Safety and selection](./safety.md): understand safe, review, protected, and beta rules.
 - [Troubleshooting](./troubleshooting.md): explain skipped targets, missing tools, and audit results.
 
