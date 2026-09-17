@@ -21,9 +21,9 @@ kundol is a macOS-first CLI for developer-machine storage and generated project 
 Read the **[help manual](https://vikz91.github.io/kundol/)** for setup, command reference, safety, troubleshooting, and architecture.
 
 - **Storage:** published owner-tool cache rules with live checks and safe or explicit-review selection.
-- **Projects/repos:** review published generated-artifact rules under a supplied workdir. Safe targets such as `node_modules` and Rust `target` can be selected after live checks; `repos` uses the same handler and does not require Git.
-- **Docker context:** `optimise docker <context>` pins an explicit daemon and plans published Docker-context rules; no Docker resource rule is published yet, so it does not remove Docker data.
-- **All scopes:** `optimise all` combines user storage, one explicit workdir, one named Docker context, and system rules into one plan and one selection step. The required scopes are never guessed.
+- **Projects/repos:** review published generated-artifact rules under a supplied or saved workdir. Safe targets such as `node_modules` and Rust `target` can be selected after live checks; `repos` uses the same handler and does not require Git.
+- **Docker context:** `optimise docker [context]` resolves and pins a named daemon and plans published Docker-context rules; no Docker resource rule is published yet, so it does not remove Docker data.
+- **All scopes:** `optimise all` combines user storage, one resolved workdir, one pinned Docker context, and system rules into one plan and one selection step. Validated scope defaults are remembered for later runs.
 - **Beta opt-in:** `--allow-beta` includes exact code-approved beta rules: Yarn Classic cache review, two Linux-only Python project reviews, and two protected Docker inventories. The other 64 beta entries remain catalogue-only and are reported individually.
 - **Tool catalogue:** list published rules, search them, or view all rules by delivery status.
 
@@ -62,7 +62,11 @@ kundol tools request
 kundol issue
 ```
 
-Add `-f` to all, storage, projects, or repos to select only safe, force-eligible targets after planning. `--allow-beta` opts into code-approved beta rules, but never makes review or protected targets force-eligible; the user-scope beta handler supports only Yarn Classic 1.x from a selected package workspace. `optimise all` requires both `--workdir` and `--docker-context`, presents one combined plan, and refuses overlapping targets across scopes. The standalone Docker command requires a named context and has no force flag. Bare `optimise` remains help-only. The `tools` commands read bundled JSON; request and issue commands open GitHub pages. See the [usage guide](docs/usage.md) for status filters, selection, and current limits.
+Add `-f` to all, storage, projects, or repos to select only safe, force-eligible targets after planning. `--allow-beta` opts into code-approved beta rules, but never makes review or protected targets force-eligible; the user-scope beta handler supports only Yarn Classic 1.x from a selected package workspace. `optimise all` resolves supplied or saved scopes, presents one combined plan, and refuses overlapping targets across scopes. The standalone Docker command has no force flag. Bare `optimise` remains help-only. The `tools` commands read bundled JSON; request and issue commands open GitHub pages. See the [usage guide](docs/usage.md) for status filters, selection, and current limits.
+
+Project paths and Docker contexts are remembered across runs in `~/.kundol/kundol.db`. The first valid project path is saved as an absolute canonical path. Docker-only and all-scope commands use an explicit or saved context, or discover one: a sole installed context is selected automatically; several require a numbered choice. Docker defaults are saved only after daemon identity validation. Explicit values are temporary overrides once defaults exist; add `--save-defaults` to deliberately replace supplied defaults. Stale defaults fail clearly without silently switching scopes.
+
+After the first run, use `kundol optimise projects`, `kundol optimise docker`, or `kundol optimise all`. Storage and project commands do not require Docker. `-f` never chooses among several Docker contexts; non-interactive runs must supply a context when discovery is ambiguous.
 
 Generated-project cleanup requires `/usr/bin/python3` for no-follow deletion and fails without it. Large directory sizes may be shown as unknown when a complete measurement would exceed the scan limit.
 

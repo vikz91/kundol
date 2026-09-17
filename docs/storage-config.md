@@ -6,13 +6,17 @@ Related tasks: `KUN-005`, `KUN-006`, `KUN-008`, `KUN-009`, `KUN-016`, `KUN-062`,
 
 ## Current state
 
-kundol uses one Bun SQLite database at `$HOME/.kundol/kundol.db`, not a database per workspace. The active CLI creates and migrates it as needed to record `actions` rows. `src/db/client.ts` supports an injected path or home directory for internal calls and tests; the public CLI has no database-path option.
+kundol uses one Bun SQLite database at `$HOME/.kundol/kundol.db`, not a database per workspace. The active CLI creates and migrates it as needed to record `actions` rows and remembered scope defaults in `settings`. `src/db/client.ts` supports an injected path or home directory for internal calls and tests; the public CLI has no database-path option.
 
-Migration v1 has `settings`, `workspaces`, `excluded_paths`, `projects`, `tags`, `project_tags`, `project_scans`, `scan_items`, `actions`, and `schema_migrations` tables. Those earlier project and configuration tables remain for compatibility with existing databases but are not populated by the engine-only CLI. The active audit path uses `actions`; the catalogue is bundled JSON, not a user config file.
+Migration v1 has `settings`, `workspaces`, `excluded_paths`, `projects`, `tags`, `project_tags`, `project_scans`, `scan_items`, `actions`, and `schema_migrations` tables. The `settings` table stores the canonical project directory and validated Docker context. Earlier project/index tables remain for compatibility but are not populated by the current CLI. The active audit path uses `actions`; the catalogue is bundled JSON, not a user config file.
 
 Per-process audit text files live at `$HOME/.kundol/sessions/session-<timestamp>-<pid>.log`. Each line is `ISO timestamp : device name : action : project name`. These logs are best-effort; SQLite `actions` rows record scans, cancellations, selected-target attempts/outcomes, and apply summaries. Target events reuse one connection during apply, closed before the run summary, and no connection is held during selection. An outcome or summary audit failure after a real action appears as a warning instead of concealing the action result. See [context](context.md) for audit caveats.
 
-The old workspace index, project registry, and configuration services have been retired. There is no public `init`, `index`, `config`, project-registry `list`, or `scan` command. `kundol tools list` reads the bundled optimisation catalogue. The public `optimise projects <workdir>` and `optimise repos <workdir>` probe the path supplied for that run; they do not use persisted workspace or `excluded_paths` rows. The public `optimise storage` route probes published user-scope cache rules and does not use persisted project or scan rows.
+The old workspace index, project registry, and configuration services have been retired. There is no public `init`, `index`, `config`, project-registry `list`, or `scan` command. `kundol tools list` reads the bundled optimisation catalogue. The public `optimise projects [workdir]` and `optimise repos [workdir]` probe a supplied or saved path; they do not use persisted workspace or `excluded_paths` rows. The public `optimise storage` route probes published user-scope cache rules and does not use persisted project or scan rows.
+
+## Remembered scopes
+
+Project paths and Docker contexts are remembered across runs in `~/.kundol/kundol.db`. The first valid project path is saved as an absolute canonical path. Docker-only and all-scope commands use an explicit or saved context, or discover one: a sole installed context is selected automatically; several require a numbered choice. Docker defaults are saved only after daemon identity validation. Explicit values are temporary overrides once defaults exist; add `--save-defaults` to deliberately replace supplied defaults. Stale defaults fail clearly without silently switching scopes. `--save-defaults` is supported on all/projects/repos/docker and replaces supplied defaults. Help and catalogue commands remain read-only. Scope persistence does not register or index projects, create exclusions, or bypass live validation.
 
 ## Retained decisions
 
@@ -20,6 +24,6 @@ The original schema placed project metadata, settings, exclusions, and audit row
 
 ## Future work
 
-If workspace registration and indexing return, let users choose several narrow roots and reject broad `/`, `~`, or system scans by default. Add explicit config commands before claiming that users can edit settings or exclusions. There is no current background monitor or daemon. Pattern exclusions, custom public database paths, and archive-root settings remain undecided.
+If workspace registration and indexing return, let users choose several narrow roots and reject broad `/`, `~`, or system scans by default. Scope defaults are updated through `--save-defaults`; other settings and exclusions have no public editing command. There is no current background monitor or daemon. Pattern exclusions, custom public database paths, and archive-root settings remain undecided.
 
 Related: [architecture](architecture.md), [commands](commands.md), and [user flow](user-flow.md).

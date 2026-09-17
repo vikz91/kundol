@@ -447,3 +447,7 @@ Add discoveries, decisions, implementation gotchas, and useful references here a
 ### 2026-09-17 11:35:00 IST — KUN-107
 
 - `register:cli` must import only built-in modules so it can bootstrap dependencies from a fresh clone or ZIP. Always run forced frozen installation and the verified release build, then copy/chmod into a temporary directory beside the destination and rename over the old executable. This replaces a legacy symlink itself, preserves its target, and keeps the previous CLI when installation or compilation fails. Test with temporary homes and a PATH without Bun; moving the source checkout confirms the installed binary is independent.
+
+### 2026-09-17 12:30:15 IST — KUN-108
+
+- Resolve only the scopes a command needs. Validate the project folder and pinned Docker daemon before saving defaults; combined commands save both atomically. Discovery lists local context names through a bounded read-only process, and multiple contexts require a choice even with force. First-use writes do not overwrite an existing default; explicit later arguments are temporary unless --save-defaults is supplied.

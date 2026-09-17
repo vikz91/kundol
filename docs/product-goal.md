@@ -9,14 +9,14 @@ kundol is a macOS-first Bun and TypeScript CLI for optimising developer-machine 
 ## Current product
 
 ```text
-chosen scope, or explicit all-scope workdir and Docker context
+chosen scope, or validated all-scope workdir and Docker context
   -> deterministic scan and classification
   -> printed plan and confirmation/selection (or -f)
   -> applicable live checks and execution
   -> report, SQLite actions, and session audit
 ```
 
-The public optimisation commands are `kundol optimise all|storage|projects|repos|docker`. All use the JSON registry probe-review-apply engine. `all` requires an explicit workdir and named Docker context and combines user, workdir, Docker-context, and system results into one plan without weakening rule eligibility. Project roots are discovered from published direct markers under an explicit workdir; `repos` uses the same workflow without Git filtering. Storage offers scoped npm, pip, uv, Go, pnpm, Bun, NuGet, and reviewed Conda safe-category owner-cache rules. Docker requires a named context and has no published resource rule yet. Broad Docker prune, arbitrary top-level temp deletion, and startup-item changes are outside the public cleanup paths. `kundol tools available|search|list` browses the catalogue; `kundol tools request` and `kundol issue` open GitHub issue flows. See [usage](usage.md), [commands](commands.md), and [context](context.md) for exact behavior and limits.
+The public optimisation commands are `kundol optimise all|storage|projects|repos|docker`. All use the JSON registry probe-review-apply engine. `all` resolves supplied or saved workdir and Docker defaults (discovering a context when needed) and combines user, workdir, Docker-context, and system results into one plan without weakening rule eligibility. Project roots are discovered from published direct markers under a supplied or saved workdir; `repos` uses the same workflow without Git filtering. Storage offers scoped npm, pip, uv, Go, pnpm, Bun, NuGet, and reviewed Conda safe-category owner-cache rules. Docker pins a resolved named context and has no published resource rule yet. Initial valid scopes are remembered; explicit overrides are temporary unless `--save-defaults` is supplied. Stale defaults fail without fallback. Broad Docker prune, arbitrary top-level temp deletion, and startup-item changes are outside the public cleanup paths. `kundol tools available|search|list` browses the catalogue; `kundol tools request` and `kundol issue` open GitHub issue flows. See [usage](usage.md), [commands](commands.md), and [context](context.md) for exact behavior and limits.
 
 The earlier workspace index, project registry, scan/clean, recommendation, archive, and startup implementation has been retired. Historical SQLite migration tables remain for database compatibility, while active optimise runs record actions and session audits. Deterministic workers are system code, not AI agents.
 

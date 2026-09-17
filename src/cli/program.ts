@@ -23,6 +23,8 @@ export interface CreateProgramOptions {
   registryCommandCwd?: string;
   registryUserRoots?: readonly string[];
   dockerPinnedRunnerFactory?: (contextName: string) => DockerPinnedRunner;
+  dockerContextNames?: () => Promise<readonly string[]>;
+  dockerContextSelect?: (names: readonly string[]) => Promise<string | undefined>;
   nugetPinnedRunner?: NugetPinnedRunner;
   condaPinnedRunner?: CondaPinnedRunner;
   openUrl?: UrlOpener;
@@ -41,6 +43,8 @@ export function createProgram(options: CreateProgramOptions = {}): Command {
     ...(options.registryCommandCwd ? { registryCommandCwd: options.registryCommandCwd } : {}),
     ...(options.registryUserRoots ? { registryUserRoots: options.registryUserRoots } : {}),
     ...(options.dockerPinnedRunnerFactory ? { dockerPinnedRunnerFactory: options.dockerPinnedRunnerFactory } : {}),
+    ...(options.dockerContextNames ? { dockerContextNames: options.dockerContextNames } : {}),
+    ...(options.dockerContextSelect ? { dockerContextSelect: options.dockerContextSelect } : {}),
     ...(options.nugetPinnedRunner ? { nugetPinnedRunner: options.nugetPinnedRunner } : {}),
     ...(options.condaPinnedRunner ? { condaPinnedRunner: options.condaPinnedRunner } : {}),
   };
@@ -55,11 +59,11 @@ export function createProgram(options: CreateProgramOptions = {}): Command {
       [
         "",
         "Command guide:",
-        "  kundol optimise all --workdir <path> --docker-context <name>",
+        "  kundol optimise all [--workdir <path>] [--docker-context <name>]",
         "  kundol optimise storage             review published owner-tool cache targets",
-        "  kundol optimise projects <workdir>  clean generated/dependency artifacts under nested projects",
-        "  kundol optimise repos <workdir>     generated-artifact cleanup in a workdir",
-        "  kundol optimise docker <context>    inspect one explicitly named Docker context",
+        "  kundol optimise projects [workdir]  clean generated/dependency artifacts under nested projects",
+        "  kundol optimise repos [workdir]     generated-artifact cleanup in a workdir",
+        "  kundol optimise docker [context]    use a saved, discovered, or supplied Docker context",
         "  kundol tools available              list published optimisation tools",
         "  kundol tools search <query>         search published optimisation tools",
         "  kundol tools list --status beta     browse experimental catalogue",
