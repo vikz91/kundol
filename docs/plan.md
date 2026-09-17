@@ -1,7 +1,7 @@
 # kundol Project Plan
 
 Created: 2026-06-13 07:18:52 IST  
-Last updated: 2026-09-15 16:09:03 IST
+Last updated: 2026-09-17 10:30:49 IST
 Project codename: kundol  
 Product concept name from source context: DevShelf  
 
@@ -175,6 +175,18 @@ These rows are historical ideas, not current CLI behavior; any storage cleanup p
 | KUN-F011 | Mobile | Add iOS project detection and analysis rules. | todo |  | 2026-06-13 08:34:13 IST |  |  | Future roadmap; likely markers include Xcode projects/workspaces, Swift packages, CocoaPods, and derived data rules. |
 | KUN-F012 | Mobile | Add Android project detection and analysis rules. | todo |  | 2026-06-13 08:34:13 IST |  |  | Future roadmap; likely markers include Gradle Android plugins, Android manifests, and generated build/cache rules. |
 | KUN-F013 | Storage Optimizer | Implement one-click optimize storage preview/apply workflow. | don | Codex + Meera/Kabir worker | 2026-06-15 21:51:27 IST | 2026-06-16 05:24:06 IST | 2026-06-16 05:34:10 IST | Implemented through CLI-only `kundol optimise storage` and `kundol optimise projects <workdir>` flow: scans first, confirms unless forced, cleans safe package/Docker/temp/project generated targets, reports results, and audits. |
+
+## Architecture documentation task
+
+| ID | Area | Task | Status | Owner | Created at | Started at | Completed at | Dependencies | Notes |
+|---|---|---|---|---|---|---|---|---|---|
+| KUN-104 | Documentation | Replace architecture prose with implementation-grounded Mermaid diagrams and concise code architecture bullets. | don | Codex + Aarav/Meera/Isha reviewers | 2026-09-17 10:28:16 IST | 2026-09-17 10:28:16 IST | 2026-09-17 10:30:49 IST | KUN-103 | Reworked architecture.md with component/sequence diagrams and concise linked code, scope, audit, and safety bullets. Three parallel source/doc reviews; 23 local links, fenced blocks, manual Mermaid review, and whitespace checks passed. Branch `codex/architecture-docs` uses updated `origin/main` per user direction because `develop` does not exist. |
+
+## Help manual task
+
+| ID | Area | Task | Status | Owner | Created at | Started at | Completed at | Dependencies | Notes |
+|---|---|---|---|---|---|---|---|---|---|
+| KUN-105 | Documentation | Build a searchable VitePress manual with generated CLI/rule references, Mermaid diagrams, and automatic GitHub Pages publication. | don | Codex + manual/review agents | 2026-09-17 10:55:00 IST | 2026-09-17 10:55:00 IST | 2026-09-17 11:08:00 IST | KUN-104 | Implemented manual and main-merge publication to gh-pages plus explicit Pages deployment. 218 tests, build, local links/assets, browser search, and both Mermaid diagrams passed. Repository Pages source configured for GitHub Actions; publication runs after merge. |
 
 ## Safety Requirements
 

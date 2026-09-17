@@ -1,40 +1,82 @@
 # kundol Architecture
 
 Created: 2026-06-13 07:24:10 IST
-Last updated: 2026-09-17 12:00:00 IST
-Related tasks: `KUN-002`, `KUN-003`, `KUN-004`, `KUN-005`, `KUN-016`, `KUN-024`, `KUN-032`, `KUN-042`, `KUN-080`, `KUN-092`, `KUN-101`, `KUN-102`, `KUN-103`
+Last updated: 2026-09-17 10:28:16 IST
+Related tasks: `KUN-101`, `KUN-102`, `KUN-103`, `KUN-104`
 
-## Current architecture
+kundol is a Bun + TypeScript CLI. The bundled registry describes cleanup rules; code-owned handlers determine what can execute. See [codebase context](context.md) for detailed behavior and limits.
 
-kundol is a Bun and TypeScript CLI. `src/cli/index.ts` starts Commander and registers `optimise`, read-only `tools` catalogue commands, and the GitHub `issue` link. Storage, workdir, and explicit Docker-context routes use the bundled JSON registry; `optimise all` composes those engines plus system-scope readiness into one plan while retaining their original review plans for apply. No Docker-context rule is published yet. There is no dashboard or TUI. See [usage](usage.md) and [context](context.md).
+## Components
 
-```text
-CLI registration and selection (src/cli)
-  -> registry schema and published rules (src/core/optimisation-registry, registry/)
-  -> registry probe/review/apply engine (src/services/optimisation-registry/)
-  -> SQLite actions and session audit (src/db/, src/services/audit/)
+```mermaid
+flowchart TD
+    Entry["cli/index.ts"] --> CLI["cli/program.ts · Commander"]
+    JSON["registry/optimisations.json"] --> Schema["core/optimisation-registry/schema.ts · Zod"]
+    Schema --> CLI
+    CLI --> Catalogue["commands/tools.ts · catalogue and requests"]
+    CLI --> Routes["commands/optimise.ts"]
+    Routes --> Actions["cli/actions.ts · scopes, selection, reporting"]
+    Actions --> Scope["Project discovery / pinned Docker context"]
+    Actions --> Engine["Registry engine · probe / review / apply"]
+    Scope --> Engine
+    Schema --> Engine
+    Engine --> Handlers["Approved selectors, validators and actions"]
+    Handlers --> Files["Scoped paths · safe-removal.ts"]
+    Handlers --> Owners["Owner-tool commands / resource adapters"]
+    Engine --> Sink["Injected audit sink"]
+    Actions --> Sink
+    Sink --> DB["SQLite actions · ~/.kundol/kundol.db"]
+    Sink --> Sessions["Best-effort text logs · ~/.kundol/sessions"]
 ```
 
-The CLI formats plans, collects selection, and reports results. The registry engine owns target identification, deduplication, live verification, and execution. Core services do not import CLI presentation. Destructive calls stay in services behind a plan and recheck. The `tools` commands only read bundled JSON; `tools request` and `issue` open GitHub pages and leave submission to the user.
+- **CLI:** [program.ts](../src/cli/program.ts) wires Commander, registry validation, and injectable dependencies; [actions.ts](../src/cli/actions.ts) coordinates scopes, prints plans, collects selection, and reports results. Catalogue commands read registry data; request/issue commands open GitHub pages.
+- **Rule contract:** [schema.ts](../src/core/optimisation-registry/schema.ts) validates [registry JSON](../registry/optimisations.json), including scope, lifecycle status, selectors, actions, validators, and review policy.
+- **Engine:** [engine.ts](../src/services/optimisation-registry/engine.ts) owns eligibility, bounded concurrent probes, deduplication, review plans, live validation, and sequential execution. Services do not import CLI presentation.
+- **Handlers:** [local-handler-bindings.ts](../src/services/optimisation-registry/local-handler-bindings.ts), [path-targets.ts](../src/services/optimisation-registry/path-targets.ts), and [commands.ts](../src/services/optimisation-registry/commands.ts) bind rules to approved adapters, generated-path selectors, or owner commands. JSON cannot introduce arbitrary executable behavior.
+- **Scopes:** [project-roots.ts](../src/services/optimisation-registry/project-roots.ts) discovers marker-backed roots under the supplied workdir; [docker-context-identity.ts](../src/services/optimisation-registry/docker-context-identity.ts) and [docker-pinned-runner.ts](../src/services/optimisation-registry/docker-pinned-runner.ts) pin Docker operations to a named context and daemon.
+- **Persistence:** [db/client.ts](../src/db/client.ts) and [action-repository.ts](../src/db/repositories/action-repository.ts) store action audits; [session-audit-log.ts](../src/services/audit/session-audit-log.ts) writes text sessions. Historical migration tables remain for compatibility, not active workspace indexing.
+- **Infrastructure:** `src/config/`, `src/platform/`, and `src/shared/` provide paths, home/clock abstractions, output formatting, and exit codes. Tests inject temporary roots, runners, clocks, and database paths.
 
-| Area | Current role |
-|---|---|
-| `registry/optimisations.json`, `src/core/optimisation-registry/` | Rule definitions, statuses, source links, and validation. |
-| `src/services/optimisation-registry/` | Published user-cache and workdir-generated-rule probe, review, apply, and audit engine. |
-| `src/db/` | One Bun SQLite database at `~/.kundol/kundol.db`; historical migration tables remain for compatibility, while active cleanup records actions. |
-| `src/services/audit/` | Best-effort text sessions under `~/.kundol/sessions`. |
-| `src/shared/`, `src/platform/` | Exit codes, output, clock, filesystem, and home helpers. |
+## Execution flow
 
-The earlier storage, project-optimizer, indexing, scan/clean, archive, project-registry, and startup modules have been retired. The current CLI does not create an archive or disable startup items.
+```mermaid
+sequenceDiagram
+    actor User
+    participant CLI as CLI actions
+    participant Engine as Registry engine
+    participant Handler as Approved handlers
+    participant Audit as Audit sink
+    User->>CLI: optimise scope + options
+    CLI->>Engine: probe eligible rules
+    Engine->>Handler: Discover and validate targets
+    Handler-->>Engine: Identities, evidence, sizes / unavailable reasons
+    Engine-->>CLI: Probe plan
+    CLI-->>User: Print plan
+    User->>CLI: Select targets (or force-safe selection)
+    CLI->>Engine: review original plan + selection
+    Engine-->>CLI: Single-use review plan
+    CLI->>Engine: apply review plan
+    loop Each selected target, sequentially
+        Engine->>Handler: Re-probe identity and validate
+        Engine->>Audit: Record attempt before action
+        Engine->>Handler: Validate again, execute only if valid
+        Engine->>Audit: Record applied / skipped / failed
+    end
+    Engine-->>CLI: Results and audit warnings
+    CLI->>Audit: Record run outcome
+    CLI-->>User: Report + exit status
+```
 
-## Safety and error boundaries
+- **Routes:** `storage` uses user scope; `projects` and `repos` use workdir scope (`repos` does not require Git); `docker` requires a named context. `all` requires both workdir and Docker context and adds system-scope readiness.
+- **Combined plans:** `all` probes four scopes concurrently using three engines (system reuses the storage engine), rejects duplicate resources and identical/nested paths, and collects one selection. Original engine plans remain authoritative; scope plans apply sequentially.
+- **Selection:** Every run prints its plan. `-f` selects only safe, force-eligible targets; review targets require explicit selection and protected inventory cannot be selected. No TTY without force records cancellation. Standalone Docker has no force option.
+- **Audits and errors:** Target events reuse one lazily opened SQLite connection per apply run, closed before the summary. Attempt-audit failure prevents that action; outcome-audit failures surface as warnings. Failed target actions produce exit code 70.
 
-Every `optimise` command prints a plan before selection or `-f`. Published registry targets are limited by integration/status, scope, code-approved handlers, and safety tier. The all-scope route requires a workdir and Docker context, rejects duplicate or nested targets across engines, and collects one selection. The issuing engine re-probes each selected identity and repeats live checks before action; protected inventory has no removal action, and `-f` selects only safe suggestions. Activity checks stream to a fixed entry limit before size measurement. Generated-path deletion uses an isolated Python helper with no-follow, descriptor-relative removal and fails closed if unavailable; [context](context.md) documents its remaining final-entry race. Target audits reuse one SQLite connection during apply. One or more apply failures return exit code 70; scans and audits can also return errors.
+## Safety and capability boundaries
 
-The public CLI does not perform broad Docker prune or blanket old-temp deletion. A named-context Docker route and staged exact-resource adapters exist, but Docker rule publication needs private-daemon acceptance; unattributed temp ownership remains future work. Owner-tool cache commands may cause re-downloads. [Context](context.md) records the current limits.
+- **Release gates:** Status, scope, platform, handler support, and safety policy must match. [beta-execution.ts](../src/services/optimisation-registry/beta-execution.ts) permits five exact opt-in beta IDs: Yarn cache review, two Linux Python review rules, and two protected Docker inventories.
+- **Live checks:** Apply accepts only its engine's issued, unused review plan and rechecks target identity and applicable validators. Generated-path activity checks precede sizing: activity is bounded at 150,000 entries; sizing at 50,000 (incomplete size is unknown).
+- **Removal:** [safe-removal.ts](../src/services/optimisation-registry/safe-removal.ts) uses an isolated system-Python helper with no-follow, descriptor-relative removal and fails closed if unsupported. The remaining final leaf-name replacement race is documented in [context](context.md).
+- **Current limits:** No Docker cleanup rule is published; beta network/volume inventory never removes resources. Staged adapters do not imply public availability. Broad Docker prune, arbitrary temp cleanup, startup changes, archives, a daemon, and a dashboard are outside the current CLI.
 
-## Design direction
-
-Keep deterministic scanners bounded and testable with injected roots, clock, process runners, and database paths. The code-owned local handler manifest pairs an exact rule ID with selector, action, and validator handlers, so registry data cannot invent executable behavior. Adapters return approved physical path identities or daemon/owner resource IDs with targeted live lookup; unbounded/truncated inventories fail closed. Independent read-only probes are concurrency-limited; selected actions recheck exact identity, run sequentially, and produce per-target audit events. Resource-specific Docker cleanup must inventory containers, images, networks, build cache, and volumes independently. Project-local rules must not justify a Docker purge. A future UI is outside the current product scope.
-
-Related decisions: [storage optimiser](storage-optimizer.md), [Docker](docker.md), and [product goal](product-goal.md).
+See [usage](usage.md) for commands and the [registry guide](optimisation-registry.md) for extension/publication gates. Verification lives in [CLI tests](../tests/cli/), [engine and adapter tests](../tests/services/), and [isolated Docker acceptance tests](../tests/docker-acceptance/README.md).

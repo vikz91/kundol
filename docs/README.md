@@ -15,4 +15,6 @@ For implemented behavior in this checkout, start with [usage](usage.md), [public
 | Brand and launch | [Brand](brand.md), [launch guide](launch.md), [launch research](viral-launch.md). |
 | Contributing and release | [Contributing and registry requests](CONTRIBUTING.md), [request form](../.github/ISSUE_TEMPLATE/registry_request.yml), [author](AUTHOR.md), [changelog](CHANGELOG.md), [release workflow](release.md), [Homebrew readiness](homebrew-publishing-readiness.md). |
 
+The [public help manual](https://vikz91.github.io/kundol/) provides searchable user guides and generated references. See [manual authoring and publication](manual-publishing.md) for the VitePress and GitHub Pages workflow.
+
 Add dated, task-linked durable decisions under `docs/`; keep chronological discoveries in [learnings.md](learnings.md). Link any new page here and in [agents.md](agents.md).

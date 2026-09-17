@@ -1,0 +1,78 @@
+name: Documentation
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: documentation-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bun run docs:build
+      - uses: actions/upload-pages-artifact@v3
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        with:
+          path: website/.vitepress/dist
+
+  deploy:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: github-pages
+          path: ${{ runner.temp }}/manual-artifact
+      - name: Extract built manual
+        run: |
+          mkdir -p "$RUNNER_TEMP/manual-site"
+          tar -xf "$RUNNER_TEMP/manual-artifact/artifact.tar" -C "$RUNNER_TEMP/manual-site"
+      - name: Update generated gh-pages branch
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+        run: |
+          OUTPUT="$RUNNER_TEMP/manual-branch"
+          if git ls-remote --exit-code --heads origin gh-pages >/dev/null; then
+            git fetch origin gh-pages
+            git worktree add --detach "$OUTPUT" FETCH_HEAD
+            git -C "$OUTPUT" rm -r --ignore-unmatch .
+          else
+            git worktree add --detach "$OUTPUT" HEAD
+            git -C "$OUTPUT" switch --orphan gh-pages
+          fi
+          cp -a "$RUNNER_TEMP/manual-site/." "$OUTPUT/"
+          git -C "$OUTPUT" config user.name 'github-actions[bot]'
+          git -C "$OUTPUT" config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git -C "$OUTPUT" add -A
+          if ! git -C "$OUTPUT" diff --cached --quiet; then
+            git -C "$OUTPUT" commit -m "docs: publish manual from $SOURCE_SHA"
+            git -C "$OUTPUT" push origin HEAD:gh-pages
+          fi
+      # Deploy explicitly: GITHUB_TOKEN branch pushes do not start Pages builds.
+      - uses: actions/configure-pages@v5
+      - uses: actions/deploy-pages@v4
+        id: deployment

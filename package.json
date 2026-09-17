@@ -16,6 +16,10 @@
     "typecheck": "tsc --noEmit",
     "build:check": "bun build src/cli/index.ts --target=bun --outfile /dev/null",
     "build:release": "bun run scripts/build-release.ts",
+    "docs:generate": "bun run scripts/generate-manual.ts",
+    "docs:dev": "bun run docs:generate && vitepress dev website",
+    "docs:build": "bun run docs:generate && vitepress build website",
+    "docs:preview": "vitepress preview website",
     "smoke:cli": "bun run scripts/smoke-cli.ts",
     "registry:new": "bun run scripts/create-registry-entry.ts",
     "registry:check": "bun run scripts/validate-optimisation-registry.ts",
@@ -33,8 +37,11 @@
     "@types/bun": "^1.3.5",
     "eslint": "^10.10.0",
     "husky": "^9.1.7",
+    "mermaid": "12",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.70.0"
+    "typescript-eslint": "^8.70.0",
+    "vitepress": "1.6.4",
+    "vue": "3"
   },
   "engines": {
     "bun": ">=1.2.0"

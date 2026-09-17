@@ -1,0 +1,17 @@
+:root {
+  --vp-c-brand-1: #087d88;
+  --vp-c-brand-2: #1498a3;
+  --vp-c-brand-3: #087d88;
+  --vp-home-hero-name-color: #087d88;
+}
+.dark {
+  --vp-c-brand-1: #60dedb;
+  --vp-c-brand-2: #38c6ca;
+  --vp-c-brand-3: #167f88;
+  --vp-home-hero-name-color: #60dedb;
+}
+.mermaid-diagram { margin: 1.5rem 0; overflow-x: auto; }
+.mermaid-diagram svg { min-width: 560px; max-width: 100%; height: auto; }
+.mermaid-diagram pre { padding: 1rem; }
+.vp-doc .mermaid-diagram .nodeLabel p,
+.vp-doc .mermaid-diagram .edgeLabel p { margin: 0; line-height: 1.5; }
