@@ -1,1 +1,0 @@
-import{_ as e,o as i,c as a,ag as t}from"./chunks/framework.CAfGEm1x.js";const c=JSON.parse('{"title":"Usage","description":"","frontmatter":{},"headers":[],"relativePath":"usage.md","filePath":"usage.md"}'),n={name:"usage.md"};function o(l,s,r,h,p,d){return i(),a("div",null,[...s[0]||(s[0]=[t("",21)])])}const u=e(n,[["render",o]]);export{c as __pageData,u as default};

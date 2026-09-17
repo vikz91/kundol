@@ -1,4 +1,4 @@
-import{_ as a,o as n,c as e,ag as p}from"./chunks/framework.CAfGEm1x.js";const h=JSON.parse('{"title":"Command reference","description":"","frontmatter":{},"headers":[],"relativePath":"reference/cli.md","filePath":"reference/cli.md"}'),l={name:"reference/cli.md"};function t(o,s,i,c,d,r){return n(),e("div",null,[...s[0]||(s[0]=[p(`<h1 id="command-reference" tabindex="-1">Command reference <a class="header-anchor" href="#command-reference" aria-label="Permalink to &quot;Command reference&quot;">​</a></h1><p>Generated from the current Commander command definitions. Your installed version may differ; run <code>kundol --help</code> to check it.</p><h2 id="kundol" tabindex="-1">kundol <a class="header-anchor" href="#kundol" aria-label="Permalink to &quot;kundol&quot;">​</a></h2><div class="language-text vp-adaptive-theme"><button title="Copy Code" class="copy"></button><span class="lang">text</span><pre class="shiki shiki-themes github-light github-dark vp-code" tabindex="0"><code><span class="line"><span>Usage: kundol [options] [command]</span></span>
+import{_ as a,o as n,c as e,ag as p}from"./chunks/framework.CAfGEm1x.js";const h=JSON.parse('{"title":"Command reference","description":"","frontmatter":{},"headers":[],"relativePath":"reference/cli.md","filePath":"reference/cli.md"}'),l={name:"reference/cli.md"};function t(i,s,o,c,d,r){return n(),e("div",null,[...s[0]||(s[0]=[p(`<h1 id="command-reference" tabindex="-1">Command reference <a class="header-anchor" href="#command-reference" aria-label="Permalink to &quot;Command reference&quot;">​</a></h1><p>Generated from the current Commander command definitions. Your installed version may differ; run <code>kundol --help</code> to check it.</p><h2 id="kundol" tabindex="-1">kundol <a class="header-anchor" href="#kundol" aria-label="Permalink to &quot;kundol&quot;">​</a></h2><div class="language-text vp-adaptive-theme"><button title="Copy Code" class="copy"></button><span class="lang">text</span><pre class="shiki shiki-themes github-light github-dark vp-code" tabindex="0"><code><span class="line"><span>Usage: kundol [options] [command]</span></span>
 <span class="line"><span></span></span>
 <span class="line"><span>Optimise developer storage and project build artifacts with an audited</span></span>
 <span class="line"><span>scan-confirm-clean flow.</span></span>
@@ -18,22 +18,25 @@ import{_ as a,o as n,c as e,ag as p}from"./chunks/framework.CAfGEm1x.js";const h
 <span class="line"><span>  -h, --help                    display help for command</span></span>
 <span class="line"><span></span></span>
 <span class="line"><span>Commands:</span></span>
-<span class="line"><span>  all [options]                 Create one review plan across every explicitly</span></span>
-<span class="line"><span>                                supplied optimisation scope.</span></span>
+<span class="line"><span>  all [options]                 Create one review plan using supplied or</span></span>
+<span class="line"><span>                                remembered scopes.</span></span>
 <span class="line"><span>  storage [options]             Review and run published owner-tool storage</span></span>
 <span class="line"><span>                                cache rules.</span></span>
-<span class="line"><span>  projects [options] &lt;workdir&gt;  Clean project-local dependency folders and</span></span>
+<span class="line"><span>  projects [options] [workdir]  Clean project-local dependency folders and</span></span>
 <span class="line"><span>                                generated build output.</span></span>
-<span class="line"><span>  docker [options] &lt;context&gt;    Review published resources in one explicitly</span></span>
-<span class="line"><span>                                selected Docker context.</span></span>
-<span class="line"><span>  repos [options] &lt;workdir&gt;     Clean generated targets under a supplied</span></span>
+<span class="line"><span>  docker [options] [context]    Review resources in a supplied, remembered, or</span></span>
+<span class="line"><span>                                detected Docker context.</span></span>
+<span class="line"><span>  repos [options] [workdir]     Clean generated targets under a supplied</span></span>
 <span class="line"><span>                                workdir.</span></span></code></pre></div><h2 id="kundol-optimise-all" tabindex="-1">kundol optimise all <a class="header-anchor" href="#kundol-optimise-all" aria-label="Permalink to &quot;kundol optimise all&quot;">​</a></h2><div class="language-text vp-adaptive-theme"><button title="Copy Code" class="copy"></button><span class="lang">text</span><pre class="shiki shiki-themes github-light github-dark vp-code" tabindex="0"><code><span class="line"><span>Usage: kundol optimise all [options]</span></span>
 <span class="line"><span></span></span>
-<span class="line"><span>Create one review plan across every explicitly supplied optimisation scope.</span></span>
+<span class="line"><span>Create one review plan using supplied or remembered scopes.</span></span>
 <span class="line"><span></span></span>
 <span class="line"><span>Options:</span></span>
-<span class="line"><span>  --workdir &lt;path&gt;         workspace directory for project and repository rules</span></span>
-<span class="line"><span>  --docker-context &lt;name&gt;  named Docker context to pin for Docker rules</span></span>
+<span class="line"><span>  --workdir &lt;path&gt;         override the saved project folder for this run; the</span></span>
+<span class="line"><span>                           first valid value is saved</span></span>
+<span class="line"><span>  --docker-context &lt;name&gt;  override the saved/detected Docker context for this</span></span>
+<span class="line"><span>                           run; the first valid value is saved</span></span>
+<span class="line"><span>  --save-defaults          save supplied scopes as new defaults (default: false)</span></span>
 <span class="line"><span>  -f, --force              skip confirmation and select only safe targets</span></span>
 <span class="line"><span>                           (default: false)</span></span>
 <span class="line"><span>  --allow-beta             attempt beta rules in every scope and report</span></span>
@@ -45,37 +48,43 @@ import{_ as a,o as n,c as e,ag as p}from"./chunks/framework.CAfGEm1x.js";const h
 <span class="line"><span>Options:</span></span>
 <span class="line"><span>  -f, --force   skip confirmation after scanning (default: false)</span></span>
 <span class="line"><span>  --allow-beta  include code-approved beta owner-tool rules (default: false)</span></span>
-<span class="line"><span>  -h, --help    display help for command</span></span></code></pre></div><h2 id="kundol-optimise-projects" tabindex="-1">kundol optimise projects <a class="header-anchor" href="#kundol-optimise-projects" aria-label="Permalink to &quot;kundol optimise projects&quot;">​</a></h2><div class="language-text vp-adaptive-theme"><button title="Copy Code" class="copy"></button><span class="lang">text</span><pre class="shiki shiki-themes github-light github-dark vp-code" tabindex="0"><code><span class="line"><span>Usage: kundol optimise projects [options] &lt;workdir&gt;</span></span>
+<span class="line"><span>  -h, --help    display help for command</span></span></code></pre></div><h2 id="kundol-optimise-projects" tabindex="-1">kundol optimise projects <a class="header-anchor" href="#kundol-optimise-projects" aria-label="Permalink to &quot;kundol optimise projects&quot;">​</a></h2><div class="language-text vp-adaptive-theme"><button title="Copy Code" class="copy"></button><span class="lang">text</span><pre class="shiki shiki-themes github-light github-dark vp-code" tabindex="0"><code><span class="line"><span>Usage: kundol optimise projects [options] [workdir]</span></span>
 <span class="line"><span></span></span>
 <span class="line"><span>Clean project-local dependency folders and generated build output.</span></span>
 <span class="line"><span></span></span>
 <span class="line"><span>Arguments:</span></span>
-<span class="line"><span>  workdir       workspace directory to scan</span></span>
+<span class="line"><span>  workdir          project folder override; saved after the first valid use</span></span>
 <span class="line"><span></span></span>
 <span class="line"><span>Options:</span></span>
-<span class="line"><span>  -f, --force   skip confirmation after scanning (default: false)</span></span>
-<span class="line"><span>  --allow-beta  include code-approved beta project rules (default: false)</span></span>
-<span class="line"><span>  -h, --help    display help for command</span></span></code></pre></div><h2 id="kundol-optimise-docker" tabindex="-1">kundol optimise docker <a class="header-anchor" href="#kundol-optimise-docker" aria-label="Permalink to &quot;kundol optimise docker&quot;">​</a></h2><div class="language-text vp-adaptive-theme"><button title="Copy Code" class="copy"></button><span class="lang">text</span><pre class="shiki shiki-themes github-light github-dark vp-code" tabindex="0"><code><span class="line"><span>Usage: kundol optimise docker [options] &lt;context&gt;</span></span>
+<span class="line"><span>  --save-defaults  save the supplied project folder as the new default (default:</span></span>
+<span class="line"><span>                   false)</span></span>
+<span class="line"><span>  -f, --force      skip confirmation after scanning (default: false)</span></span>
+<span class="line"><span>  --allow-beta     include code-approved beta project rules (default: false)</span></span>
+<span class="line"><span>  -h, --help       display help for command</span></span></code></pre></div><h2 id="kundol-optimise-docker" tabindex="-1">kundol optimise docker <a class="header-anchor" href="#kundol-optimise-docker" aria-label="Permalink to &quot;kundol optimise docker&quot;">​</a></h2><div class="language-text vp-adaptive-theme"><button title="Copy Code" class="copy"></button><span class="lang">text</span><pre class="shiki shiki-themes github-light github-dark vp-code" tabindex="0"><code><span class="line"><span>Usage: kundol optimise docker [options] [context]</span></span>
 <span class="line"><span></span></span>
-<span class="line"><span>Review published resources in one explicitly selected Docker context.</span></span>
+<span class="line"><span>Review resources in a supplied, remembered, or detected Docker context.</span></span>
 <span class="line"><span></span></span>
 <span class="line"><span>Arguments:</span></span>
-<span class="line"><span>  context       named Docker context to scan</span></span>
+<span class="line"><span>  context          Docker context override; saved after the first valid use</span></span>
 <span class="line"><span></span></span>
 <span class="line"><span>Options:</span></span>
-<span class="line"><span>  --allow-beta  include code-approved beta protected inventories (default:</span></span>
-<span class="line"><span>                false)</span></span>
-<span class="line"><span>  -h, --help    display help for command</span></span></code></pre></div><h2 id="kundol-optimise-repos" tabindex="-1">kundol optimise repos <a class="header-anchor" href="#kundol-optimise-repos" aria-label="Permalink to &quot;kundol optimise repos&quot;">​</a></h2><div class="language-text vp-adaptive-theme"><button title="Copy Code" class="copy"></button><span class="lang">text</span><pre class="shiki shiki-themes github-light github-dark vp-code" tabindex="0"><code><span class="line"><span>Usage: kundol optimise repos [options] &lt;workdir&gt;</span></span>
+<span class="line"><span>  --save-defaults  save the supplied Docker context as the new default (default:</span></span>
+<span class="line"><span>                   false)</span></span>
+<span class="line"><span>  --allow-beta     include code-approved beta protected inventories (default:</span></span>
+<span class="line"><span>                   false)</span></span>
+<span class="line"><span>  -h, --help       display help for command</span></span></code></pre></div><h2 id="kundol-optimise-repos" tabindex="-1">kundol optimise repos <a class="header-anchor" href="#kundol-optimise-repos" aria-label="Permalink to &quot;kundol optimise repos&quot;">​</a></h2><div class="language-text vp-adaptive-theme"><button title="Copy Code" class="copy"></button><span class="lang">text</span><pre class="shiki shiki-themes github-light github-dark vp-code" tabindex="0"><code><span class="line"><span>Usage: kundol optimise repos [options] [workdir]</span></span>
 <span class="line"><span></span></span>
 <span class="line"><span>Clean generated targets under a supplied workdir.</span></span>
 <span class="line"><span></span></span>
 <span class="line"><span>Arguments:</span></span>
-<span class="line"><span>  workdir       workspace directory to scan</span></span>
+<span class="line"><span>  workdir          project folder override; saved after the first valid use</span></span>
 <span class="line"><span></span></span>
 <span class="line"><span>Options:</span></span>
-<span class="line"><span>  -f, --force   skip confirmation after scanning (default: false)</span></span>
-<span class="line"><span>  --allow-beta  include code-approved beta project rules (default: false)</span></span>
-<span class="line"><span>  -h, --help    display help for command</span></span></code></pre></div><h2 id="kundol-tools" tabindex="-1">kundol tools <a class="header-anchor" href="#kundol-tools" aria-label="Permalink to &quot;kundol tools&quot;">​</a></h2><div class="language-text vp-adaptive-theme"><button title="Copy Code" class="copy"></button><span class="lang">text</span><pre class="shiki shiki-themes github-light github-dark vp-code" tabindex="0"><code><span class="line"><span>Usage: kundol tools [options] [command]</span></span>
+<span class="line"><span>  --save-defaults  save the supplied project folder as the new default (default:</span></span>
+<span class="line"><span>                   false)</span></span>
+<span class="line"><span>  -f, --force      skip confirmation after scanning (default: false)</span></span>
+<span class="line"><span>  --allow-beta     include code-approved beta project rules (default: false)</span></span>
+<span class="line"><span>  -h, --help       display help for command</span></span></code></pre></div><h2 id="kundol-tools" tabindex="-1">kundol tools <a class="header-anchor" href="#kundol-tools" aria-label="Permalink to &quot;kundol tools&quot;">​</a></h2><div class="language-text vp-adaptive-theme"><button title="Copy Code" class="copy"></button><span class="lang">text</span><pre class="shiki shiki-themes github-light github-dark vp-code" tabindex="0"><code><span class="line"><span>Usage: kundol tools [options] [command]</span></span>
 <span class="line"><span></span></span>
 <span class="line"><span>Browse the optimisation catalogue and request new targets.</span></span>
 <span class="line"><span></span></span>

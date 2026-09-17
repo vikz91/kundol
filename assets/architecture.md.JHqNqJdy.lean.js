@@ -1,10 +1,12 @@
-import{_ as a,C as o,o as i,c as s,ag as t,E as n}from"./chunks/framework.CAfGEm1x.js";const h=JSON.parse('{"title":"kundol Architecture","description":"","frontmatter":{},"headers":[],"relativePath":"architecture.md","filePath":"architecture.md"}'),c={name:"architecture.md"};function l(d,e,p,u,g,m){const r=o("MermaidDiagram");return i(),s("div",null,[e[0]||(e[0]=t("",4)),n(r,{code:`flowchart TD
+import{_ as a,C as o,o as i,c as s,ag as t,E as n}from"./chunks/framework.CAfGEm1x.js";const h=JSON.parse('{"title":"kundol Architecture","description":"","frontmatter":{},"headers":[],"relativePath":"architecture.md","filePath":"architecture.md"}'),l={name:"architecture.md"};function c(d,e,p,u,g,m){const r=o("MermaidDiagram");return i(),s("div",null,[e[0]||(e[0]=t("",4)),n(r,{code:`flowchart TD
     Entry["cli/index.ts"] --> CLI["cli/program.ts · Commander"]
     JSON["registry/optimisations.json"] --> Schema["core/optimisation-registry/schema.ts · Zod"]
     Schema --> CLI
     CLI --> Catalogue["commands/tools.ts · catalogue and requests"]
     CLI --> Routes["commands/optimise.ts"]
-    Routes --> Actions["cli/actions.ts · scopes, selection, reporting"]
+    Routes --> Defaults["Resolve supplied / saved scopes; discover Docker if needed"]
+    Defaults <--> Settings["SQLite settings · remembered defaults"]
+    Defaults --> Actions["cli/actions.ts · scopes, selection, reporting"]
     Actions --> Scope["Project discovery / pinned Docker context"]
     Actions --> Engine["Registry engine · probe / review / apply"]
     Scope --> Engine
@@ -23,6 +25,7 @@ import{_ as a,C as o,o as i,c as s,ag as t,E as n}from"./chunks/framework.CAfGEm
     participant Handler as Approved handlers
     participant Audit as Audit sink
     User->>CLI: optimise scope + options
+    CLI->>CLI: Resolve and validate scopes; persist initial or requested defaults
     CLI->>Engine: probe eligible rules
     Engine->>Handler: Discover and validate targets
     Handler-->>Engine: Identities, evidence, sizes / unavailable reasons
@@ -41,4 +44,4 @@ import{_ as a,C as o,o as i,c as s,ag as t,E as n}from"./chunks/framework.CAfGEm
     Engine-->>CLI: Results and audit warnings
     CLI->>Audit: Record run outcome
     CLI-->>User: Report + exit status
-`}),e[2]||(e[2]=t("",4))])}const k=a(c,[["render",l]]);export{h as __pageData,k as default};
+`}),e[2]||(e[2]=t("",4))])}const f=a(l,[["render",c]]);export{h as __pageData,f as default};
