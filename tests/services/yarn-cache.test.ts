@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdir, mkdtemp, rm, utimes, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, realpath, rm, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { parseOptimisationRegistry, type OptimisationRegistry } from "../../src/core/optimisation-registry/schema";
@@ -28,7 +28,7 @@ function yarnRule(status: "beta" | "published" = "published"): OptimisationRegis
 }
 
 async function fixture(custom = false): Promise<{ root: string; home: string; workspace: string; cache: string; allowedRoot: string }> {
-  const root = await mkdtemp(path.join(tmpdir(), "kundol-yarn-cache-"));
+  const root = await realpath(await mkdtemp(path.join(tmpdir(), "kundol-yarn-cache-")));
   temporaryRoots.push(root);
   const home = path.join(root, "home");
   const workspace = path.join(root, "workspace");

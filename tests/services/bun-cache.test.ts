@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdir, mkdtemp, symlink, utimes, writeFile, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, realpath, symlink, utimes, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { parseOptimisationRegistry, type OptimisationRegistry } from "../../src/core/optimisation-registry/schema";
@@ -30,7 +30,7 @@ function bunRule(): OptimisationRegistry {
 }
 
 async function fixture(custom = false): Promise<{ root: string; home: string; workspace: string; cache: string; allowedRoot: string }> {
-  const root = await mkdtemp(path.join(tmpdir(), "kundol-bun-cache-"));
+  const root = await realpath(await mkdtemp(path.join(tmpdir(), "kundol-bun-cache-")));
   temporaryRoots.push(root);
   const home = path.join(root, "home");
   const workspace = path.join(root, "workspace");

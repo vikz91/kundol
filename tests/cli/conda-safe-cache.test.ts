@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { lstat, mkdir, mkdtemp, readFile, rm, symlink, utimes, writeFile } from "node:fs/promises";
+import { lstat, mkdir, mkdtemp, readFile, realpath, rm, symlink, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { createProgram } from "../../src/cli/program";
@@ -25,7 +25,7 @@ function condaRegistry() {
 }
 
 async function fixture() {
-  const root = await mkdtemp(path.join(tmpdir(), "kundol-conda-cli-"));
+  const root = await realpath(await mkdtemp(path.join(tmpdir(), "kundol-conda-cli-")));
   roots.push(root);
   const home = path.join(root, "home");
   const approvedRoot = path.join(root, "approved-cache-root");

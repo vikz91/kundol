@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { chmod, mkdir, mkdtemp, rm, symlink, utimes, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, realpath, rm, symlink, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { parseOptimisationRegistry, type OptimisationRegistry } from "../../src/core/optimisation-registry/schema";
@@ -32,7 +32,7 @@ function nugetRules(): OptimisationRegistry {
 }
 
 async function fixture(): Promise<{ root: string; home: string; external: string; http: string; packages: string }> {
-  const root = await mkdtemp(path.join(tmpdir(), "kundol-nuget-cache-"));
+  const root = await realpath(await mkdtemp(path.join(tmpdir(), "kundol-nuget-cache-")));
   temporaryRoots.push(root);
   const home = path.join(root, "home");
   const external = path.join(root, "external");

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { lstat, mkdir, mkdtemp, rm, symlink, utimes, writeFile } from "node:fs/promises";
+import { lstat, mkdir, mkdtemp, realpath, rm, symlink, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { parseOptimisationRegistry } from "../../src/core/optimisation-registry/schema";
@@ -32,7 +32,7 @@ function safeRuleRegistry() {
 }
 
 async function fixture() {
-  const root = await mkdtemp(path.join(tmpdir(), "kundol-conda-safe-"));
+  const root = await realpath(await mkdtemp(path.join(tmpdir(), "kundol-conda-safe-")));
   roots.push(root);
   const home = path.join(root, "home");
   const cache = path.join(home, "conda-pkgs");

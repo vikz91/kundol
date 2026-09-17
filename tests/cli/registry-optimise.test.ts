@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { lstat, mkdtemp, mkdir, readFile, rm, symlink, utimes, writeFile } from "node:fs/promises";
+import { lstat, mkdtemp, mkdir, readFile, realpath, rm, symlink, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { optimiseStorage } from "../../src/cli/actions";
@@ -18,7 +18,7 @@ afterEach(async () => {
 });
 
 async function fixture() {
-  const root = await mkdtemp(path.join(tmpdir(), "kundol-registry-cli-"));
+  const root = await realpath(await mkdtemp(path.join(tmpdir(), "kundol-registry-cli-")));
   roots.push(root);
   const home = path.join(root, "home");
   const workdir = path.join(root, "projects");

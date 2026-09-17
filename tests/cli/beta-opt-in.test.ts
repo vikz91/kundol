@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { lstat, mkdir, mkdtemp, rm, utimes, writeFile } from "node:fs/promises";
+import { lstat, mkdir, mkdtemp, realpath, rm, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { createProgram } from "../../src/cli/program";
@@ -24,7 +24,7 @@ function captured() {
 
 describe("explicit beta optimisation opt-in", () => {
   test("storage attempts the beta Yarn Classic handler only with opt-in and explicit review", async () => {
-    const root = await mkdtemp(path.join(tmpdir(), "kundol-beta-yarn-cli-"));
+    const root = await realpath(await mkdtemp(path.join(tmpdir(), "kundol-beta-yarn-cli-")));
     roots.push(root);
     const home = path.join(root, "home");
     const workspace = path.join(root, "workspace");
@@ -73,7 +73,7 @@ describe("explicit beta optimisation opt-in", () => {
   test("Linux-only Python venv requires --allow-beta and explicit review; force never selects it", async () => {
     // Never exercise a proposed owner removal on this macOS host.
     if (process.platform !== "linux") return;
-    const root = await mkdtemp(path.join(tmpdir(), "kundol-beta-cli-"));
+    const root = await realpath(await mkdtemp(path.join(tmpdir(), "kundol-beta-cli-")));
     roots.push(root);
     const home = path.join(root, "home");
     const workdir = path.join(root, "projects");
@@ -117,7 +117,7 @@ describe("explicit beta optimisation opt-in", () => {
 
   test("beta tox session review removes only its pinned disposable environment", async () => {
     if (process.platform !== "linux") return;
-    const root = await mkdtemp(path.join(tmpdir(), "kundol-beta-tox-cli-"));
+    const root = await realpath(await mkdtemp(path.join(tmpdir(), "kundol-beta-tox-cli-")));
     roots.push(root);
     const home = path.join(root, "home");
     const workdir = path.join(root, "projects");
