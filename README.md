@@ -31,22 +31,35 @@ Read the **[help manual](https://vikz91.github.io/kundol/)** for setup, command 
 
 Missing a developer cache or generated target? Check `kundol tools list`, then run `kundol tools request` to open a prefilled GitHub request with the owning tool, exact target, owner documentation, and data risks. Run `kundol issue` for a bug or general feature report. A contributor can claim a request, scaffold a protected proposal with `bun run registry:new`, and submit a PR using the [contribution guide](docs/CONTRIBUTING.md). Merged PRs credit the author's GitHub handle in the [changelog](docs/CHANGELOG.md). A proposal does not activate cleanup.
 
+## Install from source
+
+On macOS, install Bun 1.2+ and Apple's Command Line Tools (`lipo` and `codesign`), then run from a cloned or downloaded checkout:
+
+```bash
+bun run register:cli
+export PATH="$HOME/.local/bin:$PATH"
+kundol --help
+```
+
+Every run reinstalls dependencies, builds a fresh universal macOS binary, and overwrites `~/.local/bin/kundol`. The installed binary supports Apple Silicon and Intel Macs and runs independently of Bun and the checkout. Rerun `bun run register:cli` after updating the source to replace the installed version.
+
+The installer prints PATH guidance without editing shell files. Add `export PATH="$HOME/.local/bin:$PATH"` to `~/.zshrc` (or your shell config) for future sessions. You can also [download a release executable](https://github.com/vikz91/kundol/releases/latest); Homebrew is coming soon. See the [installation guide](https://vikz91.github.io/kundol/getting-started.html) for details.
+
 ## Usage
 
 ```bash
-bun install
-bun run dev -- optimise all --workdir ~/Projects --docker-context my-context
-bun run dev -- optimise all --workdir ~/Projects --docker-context my-context --allow-beta
-bun run dev -- optimise storage
-bun run dev -- optimise projects ~/Projects
-bun run dev -- optimise projects ~/Projects --allow-beta
-bun run dev -- optimise repos ~/Projects
-bun run dev -- optimise docker my-context
-bun run dev -- tools available
-bun run dev -- tools search "pnpm"
-bun run dev -- tools list --status beta
-bun run dev -- tools request
-bun run dev -- issue
+kundol optimise all --workdir ~/Projects --docker-context my-context
+kundol optimise all --workdir ~/Projects --docker-context my-context --allow-beta
+kundol optimise storage
+kundol optimise projects ~/Projects
+kundol optimise projects ~/Projects --allow-beta
+kundol optimise repos ~/Projects
+kundol optimise docker my-context
+kundol tools available
+kundol tools search "pnpm"
+kundol tools list --status beta
+kundol tools request
+kundol issue
 ```
 
 Add `-f` to all, storage, projects, or repos to select only safe, force-eligible targets after planning. `--allow-beta` opts into code-approved beta rules, but never makes review or protected targets force-eligible; the user-scope beta handler supports only Yarn Classic 1.x from a selected package workspace. `optimise all` requires both `--workdir` and `--docker-context`, presents one combined plan, and refuses overlapping targets across scopes. The standalone Docker command requires a named context and has no force flag. Bare `optimise` remains help-only. The `tools` commands read bundled JSON; request and issue commands open GitHub pages. See the [usage guide](docs/usage.md) for status filters, selection, and current limits.
@@ -71,6 +84,8 @@ docker run --rm -it --network none --cap-drop ALL --security-opt no-new-privileg
 | [Mole](https://github.com/tw93/Mole) | Broader Mac toolkit for cleanup, uninstall, disk analysis, project purge, and monitoring. |
 
 ## Development
+
+Use `bun run dev -- --help` to run directly from source, or `bun run build:release --outfile dist/kundol` to build without installing.
 
 `bun run check` runs tool-version, ESLint, TypeScript, registry and 75-baseline-presence checks, Bun test, bundle, and safe CLI boot checks. The stricter `bun run registry:release` blocks the 75-rule implementation PR while any baseline proposal or mapped replacement remains unpublished. `bun install` activates Husky hooks: pre-commit first checks Bun and local TypeScript against the ranges in `package.json`, then requires lint, typecheck, and bundling to pass; pre-push checks bare `kundol` and `--help` under a temporary home.
 

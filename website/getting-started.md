@@ -21,24 +21,28 @@ cd kundol
 
 - **Download the code:** download the [source ZIP](https://github.com/vikz91/kundol/archive/refs/heads/main.zip), extract it, and open a terminal in the extracted `kundol-main` directory.
 
-From the repository directory, install dependencies and build the executable. For a ZIP download, use `HUSKY=0 bun install --frozen-lockfile` for the first command to skip Git-only development hooks.
+From the repository directory, build and install the CLI:
 
 ```bash
-bun install --frozen-lockfile
-bun run build:release --outfile dist/kundol
-./dist/kundol --version
-./dist/kundol --help
-./dist/kundol tools available
+bun run register:cli
+export PATH="$HOME/.local/bin:$PATH"
+kundol --help
+kundol tools available
 ```
 
-The release build requires macOS with Apple's Command Line Tools (`lipo` and `codesign`). It produces one executable for both Apple Silicon and Intel Macs, with Bun included. The source on `main` may be newer than the latest release.
+Every `register:cli` run reinstalls dependencies, builds a fresh universal macOS executable, and overwrites `~/.local/bin/kundol`. The installed command runs independently of Bun and this checkout. Run `bun run register:cli` again after updating the source to rebuild and replace the installed version.
 
-You can also run directly from the checkout without compiling an executable:
+Building requires macOS and Apple's Command Line Tools (`lipo` and `codesign`). The executable supports Apple Silicon and Intel Macs. The source on `main` may be newer than the latest release.
+
+The installer prints PATH guidance but does not edit shell files. The `export` above applies to the current shell; add that same line to `~/.zshrc` (or your shell's configuration file) to keep it in future sessions.
+
+For development, you can run directly from the checkout:
 
 ```bash
 bun run dev -- --help
-bun run dev -- tools available
 ```
+
+To build an executable without installing it, run `bun run build:release --outfile dist/kundol`, then `./dist/kundol --help`.
 
 ## Download a release executable
 
@@ -64,11 +68,11 @@ Homebrew installation is planned but is not available yet. Use the source or rel
 
 ## Run manual examples
 
-This manual uses `kundol` for brevity. Until you place the executable in a directory on your `PATH`, substitute the command for your chosen method:
+The source installer makes `kundol` available once `~/.local/bin` is on your `PATH`. For other setups, substitute the command for your chosen method:
 
 | Your setup | Example |
 | --- | --- |
-| Built from source, in the repository directory | `./dist/kundol tools available` |
+| Manually built from source, in the repository directory | `./dist/kundol tools available` |
 | Downloaded release, in its download directory | `./kundol tools available` |
 | Running source through Bun, in the repository directory | `bun run dev -- tools available` |
 

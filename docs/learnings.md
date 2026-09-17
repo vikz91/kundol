@@ -443,3 +443,7 @@ Add discoveries, decisions, implementation gotchas, and useful references here a
 ### 2026-09-17 11:19:00 IST — KUN-106
 
 - Source ZIPs have no `.git` directory: `bun install` succeeds but Husky prints a missing-Git message. The manual uses `HUSKY=0` for ZIP installation to skip those development hooks. The universal macOS build bundles Bun and requires `lipo`/`codesign`; the downloaded executable needs neither Bun nor a source checkout.
+
+### 2026-09-17 11:35:00 IST — KUN-107
+
+- `register:cli` must import only built-in modules so it can bootstrap dependencies from a fresh clone or ZIP. Always run forced frozen installation and the verified release build, then copy/chmod into a temporary directory beside the destination and rename over the old executable. This replaces a legacy symlink itself, preserves its target, and keeps the previous CLI when installation or compilation fails. Test with temporary homes and a PATH without Bun; moving the source checkout confirms the installed binary is independent.

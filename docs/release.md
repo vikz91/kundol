@@ -21,6 +21,22 @@ If `vX.Y.Z` already exists, the workflow keeps that tag, executable, and release
 
 No manual tag creation or push is part of this path. The release job starts when **Update changelog completes successfully**, not on a tag push. It creates the tag only after checks and the macOS build pass. Tag verification and push use `refs/tags/...` explicitly, even if a branch has the same name. Publication uses `gh release create --verify-tag`, which requires the tag to exist remotely. If publication fails after the tag push, a rerun verifies and reuses the matching tag. A manual tag push by itself does not start this workflow. See [GitHub's `workflow_run` event](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#workflow_run) and [GitHub CLI release options](https://cli.github.com/manual/gh_release_create).
 
+## Install locally from source
+
+On macOS with Bun and Apple's Command Line Tools (`lipo` and `codesign`), run:
+
+```bash
+bun run register:cli
+export PATH="$HOME/.local/bin:$PATH"
+kundol --help
+```
+
+This always reinstalls dependencies with `--frozen-lockfile --force` and `HUSKY=0`, rebuilds the existing universal release binary, and atomically replaces `~/.local/bin/kundol`. The installed executable needs no Bun and is not a symlink. Rerun the command after source updates to overwrite the previous installation.
+
+The installer prints PATH guidance without editing shell files. Add the `export` line to `~/.zshrc` (or your shell config) to persist it. Installation tests use temporary homes and do not install into the user's actual home.
+
+Users can also [download the release executable](https://github.com/vikz91/kundol/releases/latest). Homebrew distribution is coming soon.
+
 ## Local build
 
 ```bash

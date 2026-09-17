@@ -3,13 +3,20 @@
 Created: 2026-09-15 13:07:32 IST
 Last updated: 2026-09-17 12:00:00 IST
 
-Run `kundol --help` to see the installed CLI. From a source checkout, install dependencies and prefix the same commands with `bun run dev --`:
+From a cloned or downloaded source checkout on macOS, install [Bun](https://bun.sh/docs/installation) 1.2+ and Apple's Command Line Tools (`lipo` and `codesign`), then run:
 
 ```bash
-bun install --frozen-lockfile
-bun run dev -- --help
-bun run dev -- tools available
+bun run register:cli
+export PATH="$HOME/.local/bin:$PATH"
+kundol --help
+kundol tools available
 ```
+
+Every `register:cli` run reinstalls dependencies, builds a fresh universal macOS executable, and overwrites `~/.local/bin/kundol`. The installed command runs independently of Bun and this checkout. Rerun the command after updating the source to replace the installed version.
+
+The installer prints PATH guidance but does not edit shell files. Add the `export` line to `~/.zshrc` (or your shell config) for future sessions. Alternatively, [download a release executable](https://github.com/vikz91/kundol/releases/latest); Homebrew is coming soon.
+
+For development, prefix commands with `bun run dev --`, for example `bun run dev -- --help`. To build without installing, run `bun run build:release --outfile dist/kundol` and use `./dist/kundol`.
 
 ## Browse optimisation tools
 
