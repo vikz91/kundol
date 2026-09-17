@@ -439,3 +439,7 @@ Add discoveries, decisions, implementation gotchas, and useful references here a
 ### 2026-09-17 11:06:01 IST — KUN-105
 
 - Publishing generated files to `gh-pages` with `GITHUB_TOKEN` does not trigger a new Pages build. The manual workflow mirrors the built artifact to that branch and explicitly deploys the same artifact, with Pages configured for GitHub Actions. Command reference generation constructs Commander without parsing or invoking actions, so builds cannot run cleanup.
+
+### 2026-09-17 11:19:00 IST — KUN-106
+
+- Source ZIPs have no `.git` directory: `bun install` succeeds but Husky prints a missing-Git message. The manual uses `HUSKY=0` for ZIP installation to skip those development hooks. The universal macOS build bundles Bun and requires `lipo`/`codesign`; the downloaded executable needs neither Bun nor a source checkout.

@@ -188,6 +188,12 @@ These rows are historical ideas, not current CLI behavior; any storage cleanup p
 |---|---|---|---|---|---|---|---|---|---|
 | KUN-105 | Documentation | Build a searchable VitePress manual with generated CLI/rule references, Mermaid diagrams, and automatic GitHub Pages publication. | don | Codex + manual/review agents | 2026-09-17 10:55:00 IST | 2026-09-17 10:55:00 IST | 2026-09-17 11:08:00 IST | KUN-104 | Implemented manual and main-merge publication to gh-pages plus explicit Pages deployment. 218 tests, build, local links/assets, browser search, and both Mermaid diagrams passed. Repository Pages source configured for GitHub Actions; publication runs after merge. |
 
+## Manual installation options
+
+| ID | Area | Task | Status | Owner | Created at | Started at | Completed at | Dependencies | Notes |
+|---|---|---|---|---|---|---|---|---|---|
+| KUN-106 | Documentation | Document source clone/ZIP build, release executable download, and Homebrew coming soon in the help manual. | don | Codex | 2026-09-17 11:17:02 IST | 2026-09-17 11:17:02 IST | 2026-09-17 11:19:00 IST | KUN-105 | Added three installation choices, exact build/download/run commands, platform requirements, and ZIP hook handling. Verified release asset, source-without-Git install/help, universal build/version/catalogue, docs build, and section anchors. |
+
 ## Safety Requirements
 
 - Every destructive optimise command must scan first and print the exact cleanup plan before execution.
