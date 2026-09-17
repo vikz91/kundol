@@ -109,7 +109,36 @@ The example mounts no host projects or Docker socket. Building it leaves a Docke
 | Inspect a named Docker context | `kundol optimise docker my-context` |
 | Combine all scopes in one plan | `kundol optimise all --workdir ~/Projects --docker-context my-context` |
 
-Replace example paths and context names with your own. `all` requires both scopes explicitly. `repos` does not require Git. Docker currently has no published resource cleanup rule; beta opt-in adds protected network and volume inventory only.
+Replace example paths and context names with your own. `repos` does not require Git. Docker currently has no published resource cleanup rule; beta opt-in adds protected network and volume inventory only.
+
+## Reuse your scopes
+
+The first valid project directory is saved as an absolute canonical path in `~/.kundol/kundol.db`. Subsequent project or all-scope runs can omit it:
+
+```bash
+kundol optimise projects ~/Projects
+kundol optimise projects
+kundol optimise repos
+```
+
+For the first Docker or all-scope run, omit the context to discover installed Docker contexts. A sole context is selected automatically; if several exist, choose one from the numbered prompt. The context is saved only after its daemon identity validates. Later runs reuse it:
+
+```bash
+kundol optimise docker
+kundol optimise all
+```
+
+Once defaults exist, explicit paths and contexts override them for that run only. To replace a default deliberately:
+
+```bash
+kundol optimise projects ~/Work --save-defaults
+kundol optimise docker my-context --save-defaults
+kundol optimise all --workdir ~/Work --docker-context my-context --save-defaults
+```
+
+Saved defaults are validated each run. A missing directory or unavailable Docker context fails clearly; Kundol does not silently select another. No installed/reachable Docker context means the Docker command fails before scanning and saves no Docker default. For non-interactive runs with several contexts and no default, supply `--docker-context` to `all` or the context argument to `docker`; `-f` does not choose a context.
+
+Storage and project commands do not require Docker. Help and catalogue commands remain read-only.
 
 ## Find supported tools
 

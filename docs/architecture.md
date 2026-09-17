@@ -15,7 +15,9 @@ flowchart TD
     Schema --> CLI
     CLI --> Catalogue["commands/tools.ts · catalogue and requests"]
     CLI --> Routes["commands/optimise.ts"]
-    Routes --> Actions["cli/actions.ts · scopes, selection, reporting"]
+    Routes --> Defaults["Resolve supplied / saved scopes; discover Docker if needed"]
+    Defaults <--> Settings["SQLite settings · remembered defaults"]
+    Defaults --> Actions["cli/actions.ts · scopes, selection, reporting"]
     Actions --> Scope["Project discovery / pinned Docker context"]
     Actions --> Engine["Registry engine · probe / review / apply"]
     Scope --> Engine
@@ -33,8 +35,8 @@ flowchart TD
 - **Rule contract:** [schema.ts](../src/core/optimisation-registry/schema.ts) validates [registry JSON](../registry/optimisations.json), including scope, lifecycle status, selectors, actions, validators, and review policy.
 - **Engine:** [engine.ts](../src/services/optimisation-registry/engine.ts) owns eligibility, bounded concurrent probes, deduplication, review plans, live validation, and sequential execution. Services do not import CLI presentation.
 - **Handlers:** [local-handler-bindings.ts](../src/services/optimisation-registry/local-handler-bindings.ts), [path-targets.ts](../src/services/optimisation-registry/path-targets.ts), and [commands.ts](../src/services/optimisation-registry/commands.ts) bind rules to approved adapters, generated-path selectors, or owner commands. JSON cannot introduce arbitrary executable behavior.
-- **Scopes:** [project-roots.ts](../src/services/optimisation-registry/project-roots.ts) discovers marker-backed roots under the supplied workdir; [docker-context-identity.ts](../src/services/optimisation-registry/docker-context-identity.ts) and [docker-pinned-runner.ts](../src/services/optimisation-registry/docker-pinned-runner.ts) pin Docker operations to a named context and daemon.
-- **Persistence:** [db/client.ts](../src/db/client.ts) and [action-repository.ts](../src/db/repositories/action-repository.ts) store action audits; [session-audit-log.ts](../src/services/audit/session-audit-log.ts) writes text sessions. Historical migration tables remain for compatibility, not active workspace indexing.
+- **Scopes:** [project-roots.ts](../src/services/optimisation-registry/project-roots.ts) discovers marker-backed roots under the resolved supplied or saved workdir; [docker-context-identity.ts](../src/services/optimisation-registry/docker-context-identity.ts) and [docker-pinned-runner.ts](../src/services/optimisation-registry/docker-pinned-runner.ts) pin Docker operations to a named context and daemon.
+- **Persistence:** [db/client.ts](../src/db/client.ts) and [action-repository.ts](../src/db/repositories/action-repository.ts) store action audits; SQLite settings store canonical project-directory and validated Docker-context defaults; [session-audit-log.ts](../src/services/audit/session-audit-log.ts) writes text sessions. Historical migration tables remain for compatibility, not active workspace indexing.
 - **Infrastructure:** `src/config/`, `src/platform/`, and `src/shared/` provide paths, home/clock abstractions, output formatting, and exit codes. Tests inject temporary roots, runners, clocks, and database paths.
 
 ## Execution flow
@@ -47,6 +49,7 @@ sequenceDiagram
     participant Handler as Approved handlers
     participant Audit as Audit sink
     User->>CLI: optimise scope + options
+    CLI->>CLI: Resolve and validate scopes; persist initial or requested defaults
     CLI->>Engine: probe eligible rules
     Engine->>Handler: Discover and validate targets
     Handler-->>Engine: Identities, evidence, sizes / unavailable reasons
@@ -67,9 +70,9 @@ sequenceDiagram
     CLI-->>User: Report + exit status
 ```
 
-- **Routes:** `storage` uses user scope; `projects` and `repos` use workdir scope (`repos` does not require Git); `docker` requires a named context. `all` requires both workdir and Docker context and adds system-scope readiness.
+- **Routes:** `storage` uses user scope; `projects` and `repos` use workdir scope (`repos` does not require Git); `docker` resolves and pins a supplied, saved, or discovered named context. `all` resolves both scopes and adds system-scope readiness. Initial valid defaults are persisted; later explicit values are temporary unless `--save-defaults` is supplied. Stale defaults fail without fallback.
 - **Combined plans:** `all` probes four scopes concurrently using three engines (system reuses the storage engine), rejects duplicate resources and identical/nested paths, and collects one selection. Original engine plans remain authoritative; scope plans apply sequentially.
-- **Selection:** Every run prints its plan. `-f` selects only safe, force-eligible targets; review targets require explicit selection and protected inventory cannot be selected. No TTY without force records cancellation. Standalone Docker has no force option.
+- **Selection:** Every run prints its plan. `-f` selects only safe, force-eligible targets; review targets require explicit selection and protected inventory cannot be selected. After scope resolution, no TTY without force records cancellation. Docker discovery with multiple contexts needs a numbered choice or an explicit context, even with force. Standalone Docker has no force option.
 - **Audits and errors:** Target events reuse one lazily opened SQLite connection per apply run, closed before the summary. Attempt-audit failure prevents that action; outcome-audit failures surface as warnings. Failed target actions produce exit code 70.
 
 ## Safety and capability boundaries

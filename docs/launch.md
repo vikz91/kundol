@@ -8,7 +8,7 @@ This is a launch checklist for the **current CLI**. See [commands](commands.md) 
 
 ## Positioning and proof
 
-kundol is a macOS-first CLI for developer-machine cache and generated-project optimisation. `optimise all|storage|projects|repos|docker` runs registry plans. The all route requires an explicit workdir and Docker context and shows one combined plan; Docker requires a named context and has no published resource rule yet. `tools available|search|list|request` browses or requests registry tools, and `issue` opens GitHub reporting. `repos` uses the same project handler without Git filtering. See [usage](usage.md).
+kundol is a macOS-first CLI for developer-machine cache and generated-project optimisation. `optimise all|storage|projects|repos|docker` runs registry plans. The all route resolves a supplied or saved workdir and Docker context and shows one combined plan; first-use Docker context discovery selects a sole context or prompts for a choice. Docker has no published resource rule yet. `tools available|search|list|request` browses or requests registry tools, and `issue` opens GitHub reporting. `repos` uses the same project handler without Git filtering. See [usage](usage.md).
 
 Lead with a short, real terminal demo: scan a disposable workdir, show the plan, then choose whether to apply. Each run prints a plan before prompting; `-f` skips the prompt after planning. Show protected project files and the resulting audit record. Do not advertise project inventory, dashboards, archive, runtime audits, or a `--dry-run` flag as public features.
 

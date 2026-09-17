@@ -200,6 +200,12 @@ These rows are historical ideas, not current CLI behavior; any storage cleanup p
 |---|---|---|---|---|---|---|---|---|---|
 | KUN-107 | Installation | Add register:cli to always install dependencies, build, and replace the standalone executable in the user's local bin; update docs and manual. | don | Codex | 2026-09-17 11:30:55 IST | 2026-09-17 11:30:55 IST | 2026-09-17 11:35:00 IST | KUN-106 | Added forced frozen dependency install, universal macOS build, and atomic ~/.local/bin/kundol replacement. 223 tests and docs build passed. Two real registrations in a temporary home overwrote prior artifacts; the installed binary ran from another directory with no Bun on PATH after moving the source checkout. Version 0.5.1. |
 
+## Remembered scope defaults
+
+| ID | Area | Task | Status | Owner | Created at | Started at | Completed at | Dependencies | Notes |
+|---|---|---|---|---|---|---|---|---|---|
+| KUN-108 | CLI | Remember project folder and Docker context, discover first-use contexts, and support temporary overrides. | don | Codex + CLI/service/manual agents | 2026-09-17 12:23:19 IST | 2026-09-17 12:23:19 IST | 2026-09-17 12:30:15 IST | KUN-107 | Version 0.6.0: validated SQLite defaults, bounded Docker discovery and selection, temporary overrides and --save-defaults. Full check: 242 passed, 1 expected skip; manual build passed. |
+
 ## Safety Requirements
 
 - Every destructive optimise command must scan first and print the exact cleanup plan before execution.

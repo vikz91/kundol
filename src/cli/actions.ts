@@ -47,6 +47,8 @@ export interface CommandContext {
   registryCommandCwd?: string;
   registryUserRoots?: readonly string[];
   dockerPinnedRunnerFactory?: (contextName: string) => DockerPinnedRunner;
+  dockerContextNames?: () => Promise<readonly string[]>;
+  dockerContextSelect?: (names: readonly string[]) => Promise<string | undefined>;
   nugetPinnedRunner?: NugetPinnedRunner;
   condaPinnedRunner?: CondaPinnedRunner;
 }

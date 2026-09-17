@@ -43,6 +43,20 @@ kundol issue
 
 `tools request` opens a GitHub issue editor with a Markdown outline for the owning tool, exact target and scope, owner documentation, benefit, and data risks. `issue` opens the general GitHub issue chooser for bugs and feature requests. Both print the URL so you can continue manually if a browser opener is unavailable. You submit the issue on GitHub after reviewing its contents.
 
+## Remembered scopes
+
+Project paths and Docker contexts are remembered across runs in `~/.kundol/kundol.db`. The first valid project path is saved as an absolute canonical path. Docker-only and all-scope commands use an explicit or saved context, or discover one: a sole installed context is selected automatically; several require a numbered choice. Docker defaults are saved only after daemon identity validation. Explicit values are temporary overrides once defaults exist; add `--save-defaults` to deliberately replace supplied defaults. Stale defaults fail clearly without silently switching scopes.
+
+```bash
+kundol optimise projects ~/Projects   # save the first valid project directory
+kundol optimise projects              # reuse it
+kundol optimise docker                # discover, validate, and remember a context
+kundol optimise all                   # reuse both scopes
+kundol optimise all --workdir ~/Work --docker-context my-context --save-defaults
+```
+
+`--save-defaults` is supported on `all`, `projects`, `repos`, and `docker` and deliberately replaces supplied defaults. With no saved project directory, pass a workdir on the first project/all run. With no usable Docker installation or failed daemon validation, Docker scope resolution fails before scanning and saves no Docker default. `-f` never selects an ambiguous Docker context; non-interactive runs must supply a context when discovery finds several. Storage and project routes do not require Docker. Help and catalogue commands remain read-only; there is no public config command.
+
 ## Run an optimisation
 
 ```bash
@@ -56,11 +70,11 @@ kundol optimise docker my-context
 kundol optimise docker my-context --allow-beta
 ```
 
-`all` is the explicit whole-catalogue workflow. It requires both `--workdir` and `--docker-context`, resolves those scopes before scanning, then combines user, workdir, pinned Docker-context, and system results into one plan and one selection. It refuses duplicate or nested targets across scopes. Without `--allow-beta`, it considers published rules; with the flag, it also runs every beta readiness gate, while rules without a code-approved handler remain unavailable and protected rules remain inventory-only.
+`all` is the whole-catalogue workflow. It resolves a supplied or saved workdir and a supplied, saved, or discovered Docker context before scanning, then combines user, workdir, pinned Docker-context, and system results into one plan and one selection. It refuses duplicate or nested targets across scopes. Without `--allow-beta`, it considers published rules; with the flag, it also runs every beta readiness gate, while rules without a code-approved handler remain unavailable and protected rules remain inventory-only.
 
-`storage` probes published user-scope owner-tool cache rules, including Bun whole-cache review from the current package workspace; beta opt-in also probes Yarn Classic 1.x from that workspace and requires explicit review for its whole-cache owner action. Modern Yarn fails closed. `projects` discovers matching projects within the supplied workdir to depth 7, then probes published project rules; beta opt-in adds exact Python virtual and tox/Nox test environments on Linux only. `repos` calls the same handler as `projects`; it does not require Git. `docker` pins a named context and daemon identity; beta opt-in adds only protected network/volume inventories, not Docker cleanup. The scoped routes consider only their own scope; storage does not run project, system, or Docker-context rules. All routes use the JSON registry's probe-review-apply engine. Bare `optimise` remains help-only.
+`storage` probes published user-scope owner-tool cache rules, including Bun whole-cache review from the current package workspace; beta opt-in also probes Yarn Classic 1.x from that workspace and requires explicit review for its whole-cache owner action. Modern Yarn fails closed. `projects` discovers matching projects within the supplied or saved workdir to depth 7, then probes published project rules; beta opt-in adds exact Python virtual and tox/Nox test environments on Linux only. `repos` calls the same handler as `projects`; it does not require Git. `docker` pins a named context and daemon identity; beta opt-in adds only protected network/volume inventories, not Docker cleanup. The scoped routes consider only their own scope; storage does not run project, system, or Docker-context rules. All routes use the JSON registry's probe-review-apply engine. Bare `optimise` remains help-only.
 
-Each command prints a plan before action. For all, storage, and projects, enter `y` to select safe suggestions, displayed numbers to select explicit review targets, or leave the answer blank to cancel. A beta Python environment still needs its displayed number; `-f` never selects it. Protected Docker inventory cannot be selected. All/storage/projects/repos `-f, --force` skips the prompt and selects only safe, force-eligible targets; Docker has no force flag. Without an interactive terminal and without `-f`, the plan is printed and the run cancels. Apply outcomes are reported and audited in SQLite and session logs.
+Each command prints a plan before action. For all, storage, and projects, enter `y` to select safe suggestions, displayed numbers to select explicit review targets, or leave the answer blank to cancel. A beta Python environment still needs its displayed number; `-f` never selects it. Protected Docker inventory cannot be selected. All/storage/projects/repos `-f, --force` skips the prompt and selects only safe, force-eligible targets; Docker has no force flag. After scopes resolve, without an interactive terminal and without `-f`, the plan is printed and the run cancels. Apply outcomes are reported and audited in SQLite and session logs.
 
 Use an explicit disposable workdir when trying project cleanup. The [real runtime seed](demo/runtime-seed.md) has a Python venv suitable for a `--allow-beta` preview without a host mount or socket. Native macOS Python process-use checks are not yet verified, so beta Python rules skip on macOS. The [Docker sandbox](demo/docker-sandbox.md) and [public commands](commands.md) document other limits and exit behavior.
 

@@ -50,17 +50,19 @@ describe("kundol CLI program", () => {
     for (const subcommand of optimiseCommand?.commands ?? []) {
       const help = subcommand.helpInformation();
       if (subcommand.name() === "docker") {
-        expect(subcommand.options.map((option) => option.long)).toEqual(["--allow-beta"]);
+        expect(subcommand.options.map((option) => option.long)).toEqual(["--save-defaults", "--allow-beta"]);
         expect(help).not.toContain("-f, --force");
       } else if (subcommand.name() === "all") {
-        expect(subcommand.options.map((option) => option.long)).toEqual(["--workdir", "--docker-context", "--force", "--allow-beta"]);
-        expect(subcommand.options.filter((option) => option.mandatory).map((option) => option.long)).toEqual(["--workdir", "--docker-context"]);
+        expect(subcommand.options.map((option) => option.long)).toEqual(["--workdir", "--docker-context", "--save-defaults", "--force", "--allow-beta"]);
+        expect(subcommand.options.filter((option) => option.mandatory)).toEqual([]);
         expect(help).toContain("-f, --force");
       } else {
-        expect(subcommand.options.map((option) => option.long)).toEqual(["--force", "--allow-beta"]);
+        expect(subcommand.options.map((option) => option.long)).toEqual(subcommand.name() === "storage"
+          ? ["--force", "--allow-beta"] : ["--save-defaults", "--force", "--allow-beta"]);
         expect(help).toContain("-f, --force");
       }
       expect(help).toContain("--allow-beta");
+      expect(subcommand.registeredArguments.every((argument) => !argument.required)).toBe(true);
       expect(help).not.toContain("--dry-run");
       expect(help).not.toContain("--apply");
       expect(help).not.toContain("--no-dry-run");
